@@ -2,7 +2,49 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from datetime import datetime, timedelta
+import subprocess
+import os
+from pathlib import Path
 
+# GitHub repository details
+GITHUB_REPO = "forestryvehicleadmin/vehicle_gantt"  # Replace with your repo name
+GITHUB_BRANCH = "main"  # Replace with your branch name
+FILE_PATH = "Vehicle_Checkout_List.xlsx"  # Relative path to the Excel file in the repo
+
+# Path for the SSH private key and git configuration
+DEPLOY_KEY_PATH = Path("~/.ssh/github_deploy_key").expanduser()
+SSH_CONFIG_PATH = Path("~/.ssh/config").expanduser()
+
+# Ensure private key is available for SSH
+if "DEPLOY_KEY" in st.secrets:
+    DEPLOY_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(DEPLOY_KEY_PATH, "w") as f:
+        f.write(st.secrets["DEPLOY_KEY"])
+    os.chmod(DEPLOY_KEY_PATH, 0o600)  # Restrict permissions
+
+    # Configure SSH for GitHub
+    with open(SSH_CONFIG_PATH, "w") as f:
+        f.write(f"""
+        Host github.com
+            HostName github.com
+            User git
+            IdentityFile {DEPLOY_KEY_PATH}
+            StrictHostKeyChecking no
+        """)
+    os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
+
+# Clone the GitHub repository if not already cloned
+REPO_DIR = Path("repo")
+if not REPO_DIR.exists():
+    st.write("Cloning the repository...")
+    subprocess.run(["git", "clone", f"git@github.com:{GITHUB_REPO}.git", REPO_DIR.name], check=True)
+
+# Change working directory to the repo
+os.chdir(REPO_DIR)
+
+# Pull the latest changes
+st.write("Pulling the latest changes...")
+subprocess.run(["git", "pull", "origin", GITHUB_BRANCH], check=True)
 # Path to the Excel file
 file_path = r"Vehicle_Checkout_List.xlsx"
 
