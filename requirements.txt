@@ -3,3 +3,6 @@ plotly
 openpyxl
 streamlit
 datetime
+subprocess
+os
+pathlib
