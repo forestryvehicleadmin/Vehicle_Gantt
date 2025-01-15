@@ -11,7 +11,7 @@ import shutil
 st.set_page_config(layout="wide", page_title="SoF Vehicle Assignments", page_icon="📊")
 
 # GitHub repository details
-GITHUB_REPO = "forestryvehicleadmin/Vehicle_Gantt.git"# Replace with your repo name
+GITHUB_REPO = "forestryvehicleadmin/Vehicle_Gantt"  # Repo name without .git
 GITHUB_BRANCH = "master"  # Replace with your branch name
 FILE_PATH = "Vehicle_Checkout_List.xlsx"  # Relative path to the Excel file in the repo
 REPO_DIR = Path("repo")
@@ -19,12 +19,6 @@ REPO_DIR = Path("repo")
 # Set Git author identity
 subprocess.run(["git", "config", "--global", "user.name", "forestryvehicleadmin"], check=True)
 subprocess.run(["git", "config", "--global", "user.email", "forestryvehicleadmin@nau.edu"], check=True)
-'''subprocess.run(
-    ["git", "remote", "set-url", "origin", f"git@github.com:{GITHUB_REPO}.git"],
-    cwd=REPO_DIR,
-    check=True,
-)'''
-
 
 # Path for the SSH private key and git configuration
 DEPLOY_KEY_PATH = Path("~/.ssh/github_deploy_key").expanduser()
@@ -47,6 +41,15 @@ if "DEPLOY_KEY" in st.secrets:
             StrictHostKeyChecking no
         """)
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
+else:
+    st.error("DEPLOY_KEY not found in secrets!")
+
+# Ensure the repository URL is correct
+subprocess.run(
+    ["git", "remote", "set-url", "origin", f"git@github.com:{GITHUB_REPO}.git"],
+    cwd=REPO_DIR,
+    check=True,
+)
 
 
 def clone_repo_if_needed():
