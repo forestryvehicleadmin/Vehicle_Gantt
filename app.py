@@ -43,14 +43,27 @@ if "DEPLOY_KEY" in st.secrets:
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
 
 
-subprocess.run(
-    ["git", "remote", "add", "ssh-origin", "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"],
-    cwd=REPO_DIR,
-    check=True
-)
-result = subprocess.run(["git", "remote", "-v"], cwd=REPO_DIR, stdout=subprocess.PIPE, text=True)
-st.write("Configured Remotes:")
-st.write(result.stdout)
+# Check if the SSH remote already exists
+try:
+    existing_remotes = subprocess.run(
+        ["git", "remote", "-v"],
+        cwd=REPO_DIR,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True
+    ).stdout
+
+    # Add the SSH remote only if it doesn't exist
+    if SSH_REMOTE_NAME not in existing_remotes:
+        subprocess.run(
+            ["git", "remote", "add", SSH_REMOTE_NAME, SSH_REMOTE_URL],
+            cwd=REPO_DIR,
+            check=True
+        )
+    else:
+        print(f"Remote '{SSH_REMOTE_NAME}' already exists. Skipping addition.")
+except subprocess.CalledProcessError as e:
+    print(f"Error checking or adding remote: {e}")
 
 # Debug SSH connection
 ssh_test = subprocess.run(
