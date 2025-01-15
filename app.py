@@ -27,8 +27,7 @@ SSH_CONFIG_PATH = Path("~/.ssh/config").expanduser()
 # Ensure private key is available for SSH
 if "DEPLOY_KEY" in st.secrets:
     DEPLOY_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    print(DEPLOY_KEY)
-    with open(DEPLOY_KEY_PATH, "w") as f:
+        with open(DEPLOY_KEY_PATH, "w") as f:
         f.write(st.secrets["DEPLOY_KEY"])
     os.chmod(DEPLOY_KEY_PATH, 0o600)  # Restrict permissions
 
@@ -41,7 +40,9 @@ if "DEPLOY_KEY" in st.secrets:
             IdentityFile {DEPLOY_KEY_PATH}
             StrictHostKeyChecking no
         """)
+        else Print("error loading deploykey")
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
+
 
 
 
