@@ -42,7 +42,10 @@ if "DEPLOY_KEY" in st.secrets:
         """)
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
 
-
+# Define repository details
+REPO_DIR = Path("repo")  # Replace with your repository directory
+SSH_REMOTE_NAME = "ssh-origin"
+SSH_REMOTE_URL = "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"
 # Check if the SSH remote already exists
 try:
     existing_remotes = subprocess.run(
