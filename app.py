@@ -54,7 +54,8 @@ def clone_repo_if_needed():
             st.stop()
     else:
         st.write("Repository already exists locally.")
-
+result = subprocess.run(["git", "remote", "-v"], cwd=REPO_DIR, stdout=subprocess.PIPE, text=True)
+st.write(result.stdout)
 
 def push_changes_to_github():
     """Push changes to GitHub."""
