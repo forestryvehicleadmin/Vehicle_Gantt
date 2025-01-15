@@ -25,11 +25,8 @@ DEPLOY_KEY_PATH = Path("~/.ssh/github_deploy_key").expanduser()
 SSH_CONFIG_PATH = Path("~/.ssh/config").expanduser()
 
 # Ensure private key is available for SSH
-# Ensure private key is available for SSH
 if "DEPLOY_KEY" in st.secrets:
     DEPLOY_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Write the private key to the specified path
     with open(DEPLOY_KEY_PATH, "w") as f:
         f.write(st.secrets["DEPLOY_KEY"])
     os.chmod(DEPLOY_KEY_PATH, 0o600)  # Restrict permissions
@@ -44,8 +41,6 @@ if "DEPLOY_KEY" in st.secrets:
             StrictHostKeyChecking no
         """)
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
-else:
-    st.error("Error: Deploy key not found in secrets!")
 
 
 def clone_repo_if_needed():
