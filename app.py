@@ -41,8 +41,7 @@ if "DEPLOY_KEY" in st.secrets:
             StrictHostKeyChecking no
         """)
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
-else:
-    st.error("DEPLOY_KEY not found in secrets!")
+
 
 # Ensure the repository URL is correct
 subprocess.run(
