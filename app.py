@@ -19,11 +19,6 @@ REPO_DIR = Path("repo")
 # Set Git author identity
 subprocess.run(["git", "config", "--global", "user.name", "forestryvehicleadmin"], check=True)
 subprocess.run(["git", "config", "--global", "user.email", "forestryvehicleadmin@nau.edu"], check=True)
-subprocess.run(
-    ["git", "remote", "set-url", "origin", "https://github.com/forestryvehicleadmin/Vehicle_Gantt.git"],
-    cwd=REPO_DIR,
-    check=True
-)
 
 # Path for the SSH private key and git configuration
 DEPLOY_KEY_PATH = Path("~/.ssh/github_deploy_key").expanduser()
