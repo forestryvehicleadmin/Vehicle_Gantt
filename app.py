@@ -68,22 +68,7 @@ try:
 except subprocess.CalledProcessError as e:
     print(f"Error checking or adding remote: {e}")
 
-# Debug SSH connection
-ssh_test = subprocess.run(
-    ["ssh", "-i", str(DEPLOY_KEY_PATH), "-T", "git@github.com"],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-    text=True
-)
-st.write("SSH Test Output:", ssh_test.stdout)
-st.write("SSH Test Error:", ssh_test.stderr)
 
-# Check remote URL
-remote_check = subprocess.run(
-    ["git", "remote", "-v"], cwd=REPO_DIR, stdout=subprocess.PIPE, text=True
-)
-
-st.write("Remote URL:", remote_check.stdout)
 def clone_repo_if_needed():
     """Clone the repository if it doesn't already exist."""
     if not REPO_DIR.exists():
@@ -110,7 +95,7 @@ def push_changes_to_github():
             subprocess.run(["git", "stash", "--include-untracked"], check=True)
 
         # Pull latest changes to avoid conflicts
-        subprocess.run(["git", "pull", "origin", GITHUB_BRANCH, "--rebase"], check=True)
+        subprocess.run(["git", "pull", "ssh-origin", GITHUB_BRANCH, "--rebase"], check=True)
 
         # Restore stashed changes
         if result.stdout.strip():
@@ -130,7 +115,7 @@ def push_changes_to_github():
         subprocess.run(["git", "commit", "-m", "Update Excel and TXT files from Streamlit app"], check=True)
 
         # Push changes to GitHub
-        subprocess.run(["git", "push", "origin", GITHUB_BRANCH], check=True)
+        subprocess.run(["git", "push", "ssh-origin", GITHUB_BRANCH], check=True)
 
         st.success("Changes successfully pushed to GitHub!")
     except subprocess.CalledProcessError as e:
