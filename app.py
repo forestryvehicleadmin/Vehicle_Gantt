@@ -61,6 +61,12 @@ st.write("SSH Test Error:", ssh_test.stderr)
 remote_check = subprocess.run(
     ["git", "remote", "-v"], cwd=REPO_DIR, stdout=subprocess.PIPE, text=True
 )
+subprocess.run(
+    ["git", "remote", "set-url", "origin", "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"],
+    cwd=REPO_DIR,
+    check=True
+)
+
 st.write("Remote URL:", remote_check.stdout)
 def clone_repo_if_needed():
     """Clone the repository if it doesn't already exist."""
