@@ -49,10 +49,14 @@ if "DEPLOY_KEY" in st.secrets:
 
 
 subprocess.run(
-    ["git", "remote", "set-url", "origin", "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"],
+    ["git", "remote", "add", "ssh-origin", "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"],
     cwd=REPO_DIR,
     check=True
 )
+result = subprocess.run(["git", "remote", "-v"], cwd=REPO_DIR, stdout=subprocess.PIPE, text=True)
+st.write("Configured Remotes:")
+st.write(result.stdout)
+
 # Debug SSH connection
 ssh_test = subprocess.run(
     ["ssh", "-i", str(DEPLOY_KEY_PATH), "-T", "git@github.com"],
