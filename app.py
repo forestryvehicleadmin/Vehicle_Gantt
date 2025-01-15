@@ -43,14 +43,6 @@ if "DEPLOY_KEY" in st.secrets:
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
 
 
-# Ensure the repository URL is correct
-subprocess.run(
-    ["git", "remote", "set-url", "origin", f"git@github.com:{GITHUB_REPO}.git"],
-    cwd=REPO_DIR,
-    check=True,
-)
-
-
 def clone_repo_if_needed():
     """Clone the repository if it doesn't already exist."""
     if not REPO_DIR.exists():
