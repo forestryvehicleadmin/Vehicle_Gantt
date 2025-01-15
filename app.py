@@ -24,7 +24,21 @@ subprocess.run(
     cwd=REPO_DIR,
     check=True
 )
+# Debug SSH connection
+ssh_test = subprocess.run(
+    ["ssh", "-i", str(DEPLOY_KEY_PATH), "-T", "git@github.com"],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True
+)
+st.write("SSH Test Output:", ssh_test.stdout)
+st.write("SSH Test Error:", ssh_test.stderr)
 
+# Check remote URL
+remote_check = subprocess.run(
+    ["git", "remote", "-v"], cwd=REPO_DIR, stdout=subprocess.PIPE, text=True
+)
+st.write("Remote URL:", remote_check.stdout)
 # Path for the SSH private key and git configuration
 DEPLOY_KEY_PATH = Path("~/.ssh/github_deploy_key").expanduser()
 SSH_CONFIG_PATH = Path("~/.ssh/config").expanduser()
