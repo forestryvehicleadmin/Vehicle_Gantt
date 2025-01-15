@@ -47,6 +47,12 @@ if "DEPLOY_KEY" in st.secrets:
         """)
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
 
+
+subprocess.run(
+    ["git", "remote", "set-url", "origin", "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"],
+    cwd=REPO_DIR,
+    check=True
+)
 # Debug SSH connection
 ssh_test = subprocess.run(
     ["ssh", "-i", str(DEPLOY_KEY_PATH), "-T", "git@github.com"],
@@ -60,11 +66,6 @@ st.write("SSH Test Error:", ssh_test.stderr)
 # Check remote URL
 remote_check = subprocess.run(
     ["git", "remote", "-v"], cwd=REPO_DIR, stdout=subprocess.PIPE, text=True
-)
-subprocess.run(
-    ["git", "remote", "set-url", "origin", "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"],
-    cwd=REPO_DIR,
-    check=True
 )
 
 st.write("Remote URL:", remote_check.stdout)
