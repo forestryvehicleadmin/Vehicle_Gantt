@@ -47,6 +47,7 @@ if "DEPLOY_KEY" in st.secrets:
 else:
     st.error("Error: Deploy key not found in secrets!")
 
+st.write(st.secrets.keys())
 
 
 
