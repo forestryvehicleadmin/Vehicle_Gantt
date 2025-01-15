@@ -11,7 +11,7 @@ import shutil
 st.set_page_config(layout="wide", page_title="SoF Vehicle Assignments", page_icon="📊")
 
 # GitHub repository details
-GITHUB_REPO = "forestryvehicleadmin/Vehicle_Gantt"  # Replace with your repo name
+GITHUB_REPO = "git@github.com:forestryvehicleadmin/Vehicle_Gantt.git"# Replace with your repo name
 GITHUB_BRANCH = "master"  # Replace with your branch name
 FILE_PATH = "Vehicle_Checkout_List.xlsx"  # Relative path to the Excel file in the repo
 REPO_DIR = Path("repo")
