@@ -47,9 +47,6 @@ if "DEPLOY_KEY" in st.secrets:
 else:
     st.error("Error: Deploy key not found in secrets!")
 
-st.write(st.secrets.keys())
-
-
 
 def clone_repo_if_needed():
     """Clone the repository if it doesn't already exist."""
