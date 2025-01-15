@@ -17,7 +17,7 @@ FILE_PATH = "Vehicle_Checkout_List.xlsx"  # Relative path to the Excel file in t
 REPO_DIR = Path("repo")
 
 # Set Git author identity
-subprocess.run(["git", "config", "--global", "user.name", "Vehicle Admin"], check=True)
+subprocess.run(["git", "config", "--global", "user.name", "forestryvehicleadmin"], check=True)
 subprocess.run(["git", "config", "--global", "user.email", "forestryvehicleadmin@nau.edu"], check=True)
 
 # Path for the SSH private key and git configuration
