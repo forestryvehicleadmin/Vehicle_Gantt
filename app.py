@@ -40,9 +40,9 @@ if "DEPLOY_KEY" in st.secrets:
             IdentityFile {DEPLOY_KEY_PATH}
             StrictHostKeyChecking no
         """)
-else Print("error loading deploykey")
     os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
-
+else:
+    st.error("Error: Deploy key not found in secrets!")
 
 
 
