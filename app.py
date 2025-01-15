@@ -20,7 +20,7 @@ REPO_DIR = Path("repo")
 subprocess.run(["git", "config", "--global", "user.name", "forestryvehicleadmin"], check=True)
 subprocess.run(["git", "config", "--global", "user.email", "forestryvehicleadmin@nau.edu"], check=True)
 subprocess.run(
-    ["git", "remote", "set-url", "origin", f"git@github.com:{GITHUB_REPO}.git"],
+    ["git", "remote", "set-url", "origin", f"git@github.com:{GITHUB_REPO}"],
     cwd=REPO_DIR,
     check=True,
 )
