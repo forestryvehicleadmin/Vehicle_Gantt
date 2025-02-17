@@ -308,14 +308,12 @@ def load_type_list(file_path):
             except FileNotFoundError:
                 return []
 
-# Section to display and edit the type list
-st.subheader("Type List")
-
-# Load current contents
+# Display the contents in a read-only format
+st.subheader("Vehicle Type List")
 type_list_content = load_type_list("type_list.txt")
 
-# Display text area
-updated_type_list = st.text_area("Vehicle Type List:", value=type_list_content, height=200)
+# Show text (non-editable)
+st.text(type_list_content)
 
 
 # Add a dropdown to display the DataFrame
