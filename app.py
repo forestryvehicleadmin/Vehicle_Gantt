@@ -313,7 +313,7 @@ st.subheader("Vehicle Type List")
 type_list_content = load_type_list("type_list.txt")
 
 # Show text (non-editable)
-st.text(type_list_content)
+st.code(type_list_content, language="text")
 
 
 # Add a dropdown to display the DataFrame
