@@ -160,7 +160,7 @@ try:
     df['Notes'] = df['Notes'].astype(str)
 
     # Sort the DataFrame by the 'Type' column (ascending order)
-    df = df.sort_values(by="Type", ascending=True)
+    df = df.sort_values(by="Vehicle #", ascending=True)
 except Exception as e:
     st.error(f"Error loading Excel file: {e}")
     st.stop()
@@ -218,7 +218,7 @@ for trace in fig.data:
 # Sort the y-axis by ascending order of 'Type'
 fig.update_yaxes(
     categoryorder="array",
-    categoryarray=df["Type"].unique(),  # Use the sorted 'Type' column
+    categoryarray=df["Vehicle #"].unique(),  # Use the sorted 'Type' column
     ticktext=[df["Vehicle #"]],  
     tickvals=df["Vehicle #"],
     title=None,  # Hide Y-axis title
