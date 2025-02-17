@@ -182,14 +182,14 @@ fig = px.timeline(
     df,
     x_start="Checkout Date",
     x_end="Return Date",
-    y="Type",
+    y="Vehicle #",
     color="Assigned to",
     title="Vehicle Assignments",
     hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"],
     #labels={"Assigned to": "Vehicle"}
 )
 # Ensure the Y-axis order is preserved
-unique_types = df['Type'].unique()
+unique_types = df['Vehicle #'].unique()
 fig.update_yaxes(
     categoryorder="array",
     categoryarray=unique_types
@@ -202,8 +202,8 @@ for _, row in df.iterrows():
             type="rect",
             x0=row['Checkout Date'],
             x1=row['Return Date'],
-            y0=unique_types.tolist().index(row['Type']) - 0.4,
-            y1=unique_types.tolist().index(row['Type']) + 0.4,
+            y0=unique_types.tolist().index(row['Vehicle #']) - 0.4,
+            y1=unique_types.tolist().index(row['Vehicle #']) + 0.4,
             xref="x",
             yref="y",
             fillcolor="rgba(255,0,0,0.1)",  # Red with 10% opacity
@@ -219,15 +219,15 @@ for trace in fig.data:
 fig.update_yaxes(
     categoryorder="array",
     categoryarray=df["Type"].unique(),  # Use the sorted 'Type' column
-    ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
-    tickvals=df["Type"],
+    ticktext=[label[:3] for label in df["Vehicle #"]],  # Truncated labels
+    tickvals=df["Vehicle #"],
     title=None,  # Hide Y-axis title
 )
 
 # Limit the y-axis labels to three characters
 fig.update_yaxes(
     ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
-    tickvals=df["Type"],
+    tickvals=df["Vehicle #"],
     title=None,  # Hide Y-axis title
 )
 
@@ -275,7 +275,7 @@ while current_date <= week_range:
     current_date += timedelta(days=1)
 
 # Add horizontal grid lines only for used rows
-unique_y_values = df["Type"].unique()
+unique_y_values = df["Vehicle #"].unique()
 for idx, label in enumerate(unique_y_values):
     fig.add_shape(
         type="line",
