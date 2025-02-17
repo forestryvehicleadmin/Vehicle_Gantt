@@ -219,7 +219,7 @@ for trace in fig.data:
 fig.update_yaxes(
     categoryorder="array",
     categoryarray=df["Type"].unique(),  # Use the sorted 'Type' column
-    ticktext=[label[:3] for label in df["Vehicle #"]],  # Truncated labels
+    ticktext=[df["Vehicle #"]],  
     tickvals=df["Vehicle #"],
     title=None,  # Hide Y-axis title
 )
