@@ -182,17 +182,17 @@ fig = px.timeline(
     df,
     x_start="Checkout Date",
     x_end="Return Date",
-    y="Type",
+    y="Vehicle #",
     color="Assigned to",
     title="Vehicle Assignments",
     hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"],
     #labels={"Assigned to": "Vehicle"}
 )
 # Ensure the Y-axis order is preserved
-unique_types = df['Type'].unique()
+unique_types = df['Vehicle #'].unique()
 fig.update_yaxes(
     categoryorder="array",
-    categoryarray=unique_types
+    categoryarray=unique_vehicles
 )
 
 # Add semi-transparent overlays for 'Reserved' bars
@@ -225,11 +225,11 @@ fig.update_yaxes(
 )
 
 # Limit the y-axis labels to three characters
-fig.update_yaxes(
-    ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
-    tickvals=df["Type"],
-    title=None,  # Hide Y-axis title
-)
+#fig.update_yaxes(
+#    ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
+#    tickvals=df["Type"],
+#    title=None,  # Hide Y-axis title
+#)
 
 # Add today's date as a vertical red line
 fig.add_shape(
@@ -275,7 +275,7 @@ while current_date <= week_range:
     current_date += timedelta(days=1)
 
 # Add horizontal grid lines only for used rows
-unique_y_values = df["Type"].unique()
+unique_y_values = df["Vehicle #"].unique()
 for idx, label in enumerate(unique_y_values):
     fig.add_shape(
         type="line",
