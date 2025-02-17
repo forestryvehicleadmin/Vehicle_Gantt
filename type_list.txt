@@ -1,9 +1,9 @@
 268 - 2017 Ford F-150, Silver(6 Seats)
-310 - Chevy Trail Boss, White
-321 - Chevy Trail Boss, White
-325 - Chevy Trail Boss, White
-329 - Chevy Trail Boss, White
-330 - Toyota Camry
+310 - Chevy Trail Boss, White (5 seats)
+321 - Chevy Trail Boss, White (5 seats)
+325 - Chevy Trail Boss, White (5 seats)
+329 - Chevy Trail Boss, White (5 seats)
+330 - Toyota Camry Hybrid, White (5 seats)
 331- 2024  Toyota Sienna Hybrid, White (8 seats)
 332 - 2009 Dodge Dakota, White (5 Seats)
 333 - 2017 Toyota Tacoma, Charcoal (5 Seats)
