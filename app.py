@@ -300,6 +300,16 @@ fig.update_layout(
 # Display the Gantt chart full screen
 st.plotly_chart(fig, use_container_width=True)
 
+# Section to display and edit the type list
+st.subheader("Type List")
+
+# Load current contents
+type_list_content = load_type_list("type_list.txt")
+
+# Display text area
+updated_type_list = st.text_area("Vehicle Type List:", value=type_list_content, height=200)
+
+
 # Add a dropdown to display the DataFrame
 with st.expander("View and Filter Data Table"):
     st.subheader("Filter and View Data Table")
