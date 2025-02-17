@@ -300,20 +300,21 @@ fig.update_layout(
 # Display the Gantt chart full screen
 st.plotly_chart(fig, use_container_width=True)
 
+# Function to read contents of type_list.txt and display line by line
 def load_type_list(file_path):
-            try:
-                with open(file_path, "r") as file:
-                    lines = file.readlines()
-                    return [line.strip() for line in lines if line.strip()]  # Remove empty lines
-            except FileNotFoundError:
-                return []
+    try:
+        with open(file_path, "r") as file:
+            lines = file.readlines()  # Read each line into a list
+            return "\n".join(line.strip() for line in lines if line.strip())  # Join with new lines
+    except FileNotFoundError:
+        return "File not found."
 
-# Display the contents in a read-only format
+# Display the vehicle type list in a readable format
 st.subheader("Vehicle Type List")
 type_list_content = load_type_list("type_list.txt")
 
-# Show text (non-editable)
-st.code(type_list_content, language="text")
+# Use st.markdown() to display line-separated vehicle types
+st.markdown(f"```\n{type_list_content}\n```")
 
 
 # Add a dropdown to display the DataFrame
