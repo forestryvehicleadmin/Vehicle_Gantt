@@ -300,6 +300,14 @@ fig.update_layout(
 # Display the Gantt chart full screen
 st.plotly_chart(fig, use_container_width=True)
 
+def load_type_list(file_path):
+            try:
+                with open(file_path, "r") as file:
+                    lines = file.readlines()
+                    return [line.strip() for line in lines if line.strip()]  # Remove empty lines
+            except FileNotFoundError:
+                return []
+
 # Section to display and edit the type list
 st.subheader("Type List")
 
