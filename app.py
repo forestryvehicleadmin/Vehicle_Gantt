@@ -420,7 +420,7 @@ with st.expander("Manage Entries (Create, Edit, Delete) VEM use only."):
         )
 
         # "Type" field (dropdown for vehicle types)
-        new_entry["Type"] = st.selectbox("Type (Vehicle) {*NOTE* DO NOT type a new entry in, only select from drop down}:", options=[""] + type_list)
+        new_entry["Type"] = st.radio("Type (Vehicle) {*NOTE* DO NOT type a new entry in, only select from drop down}:", options=[""] + type_list)
 
         # Automatically populate the Vehicle # based on the first 3 characters of Type
         if new_entry["Type"]:
