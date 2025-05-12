@@ -299,9 +299,18 @@ fig.update_layout(
     xaxis_range=[start_range, end_range]  # Set initial zoom range
 )
 
+# Generate one tick per day from start_range to end_range
+tick_dates = pd.date_range(start=start_range, end=end_range, freq="D")
+
+# Create custom labels: weekday initial + dd/mm
+tick_labels = [d.strftime("%a")[0] + "<br>" + d.strftime("%d/%m") for d in tick_dates]
+
 fig.update_xaxes(
-    tickformat="%a<br>%d/%m",  # e.g., "Mon\n06/05"
-    ticklabelmode="period"     # Optional: avoids overlaps
+    tickmode="array",
+    tickvals=tick_dates,
+    ticktext=tick_labels,
+    tickangle=0,  # vertical or horizontal
+    tickfont=dict(size=10),
 )
 
 # Display the Gantt chart full screen
