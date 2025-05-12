@@ -241,6 +241,7 @@ fig.add_shape(
     xref="x",
     yref="paper",
     fillcolor="rgba(255, 0, 0, 0.1)",  # Light red fill
+    line=dict(color="red", width=0),
     layer="below"
 )
 
