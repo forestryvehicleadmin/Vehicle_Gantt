@@ -297,6 +297,11 @@ fig.update_layout(
     xaxis_range=[start_range, end_range]  # Set initial zoom range
 )
 
+fig.update_xaxes(
+    tickformat="%a<br>%d/%m",  # e.g., "Mon\n06/05"
+    ticklabelmode="period"     # Optional: avoids overlaps
+)
+
 # Display the Gantt chart full screen
 st.plotly_chart(fig, use_container_width=True)
 
