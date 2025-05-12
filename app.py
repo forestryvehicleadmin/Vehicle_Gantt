@@ -151,6 +151,8 @@ if not st.session_state.popup_shown:
 # Streamlit app
 st.title("SoF Vehicle Assignments")
 
+view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
+
 # Load the data
 try:
     df = pd.read_excel(file_path, engine="openpyxl")
@@ -177,8 +179,6 @@ today = datetime.today()
 start_range = today - timedelta(weeks=2)  # 2 weeks ago
 end_range = today + timedelta(weeks=4)    # 4 weeks from now
 week_range = end_range + timedelta(weeks=10)   # grids timeframe
-
-view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
 
 if view_mode == "Mobile":
     xaxis_range = [today - timedelta(days=1), today + timedelta(days=3)]  # Zoomed in
