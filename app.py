@@ -233,15 +233,16 @@ fig.update_yaxes(
 
 # Add today's date as a vertical red line
 fig.add_shape(
-    type="line",
-    x0=today,
+    type="rect",
+    x0=today.replace(hour=0, minute=0, second=0, microsecond=0),
+    x1=today.replace(hour=23, minute=59, second=59, microsecond=999999),
     y0=0,
-    x1=today,
     y1=1,
     xref="x",
     yref="paper",
-    line=dict(color="red", width=2, dash="dot"),
-    name="Today"
+    fillcolor="rgba(255, 0, 0, 0.1)",  # Light red fill
+    line=dict(color="red", width=2),   # Optional border
+    layer="below"
 )
 
 # Add weekly and daily grid lines
