@@ -181,7 +181,7 @@ end_range = today + timedelta(weeks=4)    # 4 weeks from now
 week_range = end_range + timedelta(weeks=10)   # grids timeframe
 
 if view_mode == "Mobile":
-    xaxis_range = [today - timedelta(days=1), today + timedelta(days=3)]  # Zoomed in
+    xaxis_range = [today - timedelta(days=2), today + timedelta(days=5)]  # Zoomed in
     chart_height = 1000  # Taller for scrolling on phones
 else:
     xaxis_range = [start_range, end_range]  # Wider view
