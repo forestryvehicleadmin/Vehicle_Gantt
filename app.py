@@ -189,6 +189,19 @@ else:
 
 df["Bar Label"] = df["Vehicle #"].astype(str) + " - " + df["Assigned to"]
 
+custom_colors = [
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    "#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99",
+    "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a",
+    "#ffff99", "#b15928", "#393b79", "#5254a3", "#6b6ecf",
+    "#9c9ede", "#637939", "#8ca252", "#b5cf6b", "#cedb9c"
+]
+
+# Create map from Assigned to → color
+assigned_to_names = df["Assigned to"].unique()
+color_map = {name: custom_colors[i % len(custom_colors)] for i, name in enumerate(assigned_to_names)}
+
 # Create the Gantt chart
 fig = px.timeline(
     df,
@@ -196,6 +209,7 @@ fig = px.timeline(
     x_end="Return Date",
     y="Type",
     color="Assigned to",
+    color_discrete_map=color_map,
     title="Vehicle Assignments",
     hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"],
     text="Bar Label" 
