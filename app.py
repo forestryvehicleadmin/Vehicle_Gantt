@@ -186,7 +186,9 @@ if view_mode == "Mobile":
 else:
     xaxis_range = [start_range, end_range]  # Wider view
     chart_height = 800
-    
+
+df["Bar Label"] = df["Vehicle #"].astype(str) + " - " + df["Assigned to"]
+
 # Create the Gantt chart
 fig = px.timeline(
     df,
@@ -196,7 +198,7 @@ fig = px.timeline(
     color="Assigned to",
     title="Vehicle Assignments",
     hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"],
-    text="Assigned to"
+    text="Bar Label" 
     #labels={"Assigned to": "Vehicle"}
 )
 fig.update_traces(
