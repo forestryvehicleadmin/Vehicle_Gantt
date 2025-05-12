@@ -196,8 +196,11 @@ fig = px.timeline(
     color="Assigned to",
     title="Vehicle Assignments",
     hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"],
+    text="Assigned to"
     #labels={"Assigned to": "Vehicle"}
 )
+fig.update_traces(textposition="inside", insidetextanchor="start", textfont=dict(size=10, color="black"))
+
 # Ensure the Y-axis order is preserved
 unique_types = df['Type'].unique()
 fig.update_yaxes(
