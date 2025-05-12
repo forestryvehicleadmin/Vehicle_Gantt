@@ -248,6 +248,7 @@ fig.add_shape(
 # Add weekly and daily grid lines
 current_date = start_range
 while current_date <= week_range:
+    current_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
     # Add weekly grid lines (thicker lines)
     if current_date.weekday() == 0:  # Monday
         fig.add_shape(
