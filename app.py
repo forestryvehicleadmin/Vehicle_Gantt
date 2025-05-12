@@ -199,7 +199,15 @@ fig = px.timeline(
     text="Assigned to"
     #labels={"Assigned to": "Vehicle"}
 )
-fig.update_traces(textposition="inside", insidetextanchor="start", textfont=dict(size=10, color="white"))
+fig.update_traces(
+    textposition="inside",
+    insidetextanchor="start",
+    textfont=dict(
+        size=10,
+        color="white",  # High contrast
+        family="Arial Black"  # Optional bold/thicker font
+    )
+)
 
 # Ensure the Y-axis order is preserved
 unique_types = df['Type'].unique()
