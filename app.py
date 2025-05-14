@@ -210,7 +210,7 @@ fig = px.timeline(
     color="Assigned to",
     color_discrete_map=color_map,
     title="Vehicle Assignments",
-    hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"],
+    hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date", "Authorized Drivers"],
     text="Bar Label" 
     #labels={"Assigned to": "Vehicle"}
 )
