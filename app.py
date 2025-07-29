@@ -631,12 +631,17 @@ with st.expander("Manage Entries (Create, Edit, Delete) VEM use only."):
                         key=f"edit_multiselect_{column}"
                     )
                 elif pd.api.types.is_datetime64_any_dtype(df[column]):  # Date fields
-                    edited_row[column] = st.date_input(
+                    selected_date = st.date_input(
                         f"{column}:",
-                        value=pd.Timestamp(df.loc[selected_id, column]) if pd.notna(
-                            df.loc[selected_id, column]) else datetime.today(),
+                        value=pd.Timestamp(df.loc[selected_id, column]).date() if pd.notna(
+                            df.loc[selected_id, column]) else datetime.today().date(),
                         key=f"edit_date_{column}"
                     )
+                
+                    if column.lower() == "return date":
+                        edited_row[column] = datetime.combine(selected_date, datetime.max.time().replace(microsecond=0))
+                    else:
+                        edited_row[column] = datetime.combine(selected_date, datetime.min.time())
                 elif pd.api.types.is_numeric_dtype(df[column]):  # Numeric fields
                     edited_row[column] = st.number_input(
                         f"{column}:",
