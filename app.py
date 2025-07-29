@@ -537,7 +537,12 @@ with st.expander("Manage Entries (Create, Edit, Delete) VEM use only."):
             if column not in ["Assigned to", "Type", "Vehicle #", "Status",
                               "Authorized Drivers"]:  # Already handled above
                 if pd.api.types.is_datetime64_any_dtype(df[column]):
-                    new_entry[column] = st.date_input(f"{column}:", value=datetime.today())
+                    date_val = st.date_input(f"{column}:", value=datetime.today())
+                    if column.lower() == "return date":
+                        # Set return date to 11:59:59 PM
+                        new_entry[column] = datetime.combine(date_val, datetime.max.time().replace(microsecond=0))
+                    else:
+                        new_entry[column] = datetime.combine(date_val, datetime.min.time())
                 elif pd.api.types.is_numeric_dtype(df[column]):
                     new_entry[column] = st.number_input(f"{column}:", value=0)
                 else:
