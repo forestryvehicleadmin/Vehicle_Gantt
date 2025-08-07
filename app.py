@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import subprocess
 import os
 from pathlib import Path
-import shutil
+import hashlib
 
 # Set the app to wide mode
 st.set_page_config(layout="wide", page_title="SoF Vehicle Assignments", page_icon="📊")
@@ -132,6 +132,11 @@ def push_changes_to_github():
 # Path to the Excel file
 file_path = r"Vehicle_Checkout_List.xlsx"
 
+def hash_file_contents(file_path):
+    """Returns a hash of the file contents to detect changes."""
+    with open(file_path, "rb") as f:
+        return hashlib.md5(f.read()).hexdigest()
+
 # Check if the popup has been displayed already
 if "popup_shown" not in st.session_state:
     st.session_state.popup_shown = False  # Initialize the state
@@ -174,119 +179,107 @@ st.markdown("###")
 # Add a button to toggle the legend
 show_legend = st.checkbox("Show Legend", value=False)
 
-# Calculate dynamic zoom range: past 2 weeks and next 4 weeks
-today = datetime.today()
-start_range = today - timedelta(weeks=2)  # 2 weeks ago
-end_range = today + timedelta(weeks=4)    # 4 weeks from now
-week_range = end_range + timedelta(weeks=10)   # grids timeframe
+#@st.cache_data(show_spinner="Generating Gantt chart...")
+def generate_gantt_chart(df, view_mode, show_legend):
 
-if view_mode == "Mobile":
-    xaxis_range = [today - timedelta(days=2), today + timedelta(days=5)]  # Zoomed in
-    chart_height = 1000  # Taller for scrolling on phones
-else:
-    xaxis_range = [start_range, end_range]  # Wider view
-    chart_height = 800
+    df = df.copy()
+    today = datetime.today()
+    start_range = today - timedelta(weeks=2)
+    end_range = today + timedelta(weeks=4)
+    week_range = end_range + timedelta(weeks=10)
 
-df["Bar Label"] = df["Vehicle #"].astype(str) + " - " + df["Assigned to"]
-
-custom_colors = [
-    "#353850", "#3A565A", "#3E654C", "#557042", "#7C7246", "#884C49",
-    "#944C7F", "#7B4FA1", "#503538", "#5A3A56", "#4C3E65", "#425570",
-    "#467C72", "#49884C", "#80944C", "#A1794F", "#395035", "#575A3A",
-    "#654B3E", "#704255", "#72467C", "#4C4988", "#4C8094", "#4FA179"
-]
-
-
-# Create map from Assigned to → color
-assigned_to_names = df["Assigned to"].unique()
-color_map = {name: custom_colors[i % len(custom_colors)] for i, name in enumerate(assigned_to_names)}
-
-# Create the Gantt chart
-fig = px.timeline(
-    df,
-    x_start="Checkout Date",
-    x_end="Return Date",
-    y="Type",
-    color="Assigned to",
-    color_discrete_map=color_map,
-    title="Vehicle Assignments",
-    hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date", "Authorized Drivers"],
-    text="Bar Label" 
-    #labels={"Assigned to": "Vehicle"}
-)
-fig.update_traces(
-    textposition="inside",
-    insidetextanchor="start",
-    textfont=dict(
-        size=10,
-        color="white",  # High contrast
-        family="Arial Black"  # Optional bold/thicker font
+    xaxis_range = (
+        [today - timedelta(days=2), today + timedelta(days=5)]
+        if view_mode == "Mobile"
+        else [start_range, end_range]
     )
-)
 
-# Ensure the Y-axis order is preserved
-unique_types = df['Type'].unique()
-fig.update_yaxes(
-    categoryorder="array",
-    categoryarray=unique_types
-)
+    df["Bar Label"] = df["Vehicle #"].astype(str) + " - " + df["Assigned to"]
 
-# Add semi-transparent overlays for 'Reserved' bars
-for _, row in df.iterrows():
-    if row['Status'] == 'Reserved':
-        fig.add_shape(
-            type="rect",
-            x0=row['Checkout Date'],
-            x1=row['Return Date'],
-            y0=unique_types.tolist().index(row['Type']) - 0.4,
-            y1=unique_types.tolist().index(row['Type']) + 0.4,
-            xref="x",
-            yref="y",
-            fillcolor="rgba(255,0,0,0.1)",  # Red with 10% opacity
-            line=dict(width=0),  # No border for reserved
-            layer="below"  # Ensure Reserved is drawn under Confirmed
-        )
+    custom_colors = [
+        "#353850", "#3A565A", "#3E654C", "#557042", "#7C7246", "#884C49",
+        "#944C7F", "#7B4FA1", "#503538", "#5A3A56", "#4C3E65", "#425570",
+        "#467C72", "#49884C", "#80944C", "#A1794F", "#395035", "#575A3A",
+        "#654B3E", "#704255", "#72467C", "#4C4988", "#4C8094", "#4FA179"
+    ]
 
-# Adjust bar opacity for the timeline
-for trace in fig.data:
-    trace.opacity = 0.9  # Set all timeline bars to 90% opacity
+    assigned_to_names = df["Assigned to"].unique()
+    color_map = {name: custom_colors[i % len(custom_colors)] for i, name in enumerate(assigned_to_names)}
 
-# Sort the y-axis by ascending order of 'Type'
-fig.update_yaxes(
-    categoryorder="array",
-    categoryarray=df["Type"].unique(),  # Use the sorted 'Type' column
-    ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
-    tickvals=df["Type"],
-    title=None,  # Hide Y-axis title
-)
+    fig = px.timeline(
+        df,
+        x_start="Checkout Date",
+        x_end="Return Date",
+        y="Type",
+        color="Assigned to",
+        color_discrete_map=color_map,
+        title="Vehicle Assignments",
+        hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date", "Authorized Drivers"],
+        text="Bar Label"
+    )
+    fig.update_traces(
+        textposition="inside",
+        insidetextanchor="start",
+        textfont=dict(size=10, color="white", family="Arial Black")
+    )
 
-# Limit the y-axis labels to three characters
-fig.update_yaxes(
-    ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
-    tickvals=df["Type"],
-    title=None,  # Hide Y-axis title
-)
+    unique_types = df['Type'].unique()
+    fig.update_yaxes(categoryorder="array", categoryarray=unique_types)
 
-# Add today's date as a vertical red line
-fig.add_shape(
-    type="rect",
-    x0=today.replace(hour=0, minute=0, second=0, microsecond=0),
-    x1=today.replace(hour=23, minute=59, second=59, microsecond=999999),
-    y0=0,
-    y1=1,
-    xref="x",
-    yref="paper",
-    fillcolor="rgba(255, 0, 0, 0.1)",  # Light red fill
-    line=dict(color="red", width=0),
-    layer="below"
-)
+    for _, row in df.iterrows():
+        if row['Status'] == 'Reserved':
+            fig.add_shape(
+                type="rect",
+                x0=row['Checkout Date'],
+                x1=row['Return Date'],
+                y0=unique_types.tolist().index(row['Type']) - 0.4,
+                y1=unique_types.tolist().index(row['Type']) + 0.4,
+                xref="x",
+                yref="y",
+                fillcolor="rgba(255,0,0,0.1)",
+                line=dict(width=0),
+                layer="below"
+            )
 
-# Add weekly and daily grid lines
-current_date = start_range
-while current_date <= week_range:
-    current_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    # Add weekly grid lines (thicker lines)
-    if current_date.weekday() == 0:  # Monday
+    for trace in fig.data:
+        trace.opacity = 0.9
+
+    fig.update_yaxes(
+        categoryorder="array",
+        categoryarray=df["Type"].unique(),
+        ticktext=[label[:3] for label in df["Type"]],
+        tickvals=df["Type"],
+        title=None,
+    )
+
+    fig.add_shape(
+        type="rect",
+        x0=today.replace(hour=0, minute=0, second=0, microsecond=0),
+        x1=today.replace(hour=23, minute=59, second=59, microsecond=999999),
+        y0=0,
+        y1=1,
+        xref="x",
+        yref="paper",
+        fillcolor="rgba(255, 0, 0, 0.1)",
+        line=dict(color="red", width=0),
+        layer="below"
+    )
+
+    current_date = start_range
+    while current_date <= week_range:
+        current_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        if current_date.weekday() == 0:
+            fig.add_shape(
+                type="line",
+                x0=current_date,
+                y0=0,
+                x1=current_date,
+                y1=1,
+                xref="x",
+                yref="paper",
+                line=dict(color="gray", width=1.5, dash="solid"),
+                layer="below",
+            )
         fig.add_shape(
             type="line",
             x0=current_date,
@@ -295,62 +288,49 @@ while current_date <= week_range:
             y1=1,
             xref="x",
             yref="paper",
-            line=dict(color="gray", width=1.5, dash="solid"),
+            line=dict(color="lightgray", width=0.5, dash="dot"),
             layer="below",
         )
-    # Add daily grid lines (thinner lines)
-    fig.add_shape(
-        type="line",
-        x0=current_date,
-        y0=0,
-        x1=current_date,
-        y1=1,
-        xref="x",
-        yref="paper",
-        line=dict(color="lightgray", width=0.5, dash="dot"),
-        layer="below",
-    )
-    current_date += timedelta(days=1)
+        current_date += timedelta(days=1)
 
-# Add horizontal grid lines only for used rows
-unique_y_values = df["Type"].unique()
-for idx, label in enumerate(unique_y_values):
-    fig.add_shape(
-        type="line",
-        x0=start_range,
-        y0=idx - 0.5,  # Align with the row's center
-        x1=week_range,
-        y1=idx - 0.5,
-        xref="x",
-        yref="y",
-        line=dict(color="lightgray", width=1, dash="dot"),
+    for idx, label in enumerate(unique_types):
+        fig.add_shape(
+            type="line",
+            x0=start_range,
+            y0=idx - 0.5,
+            x1=week_range,
+            y1=idx - 0.5,
+            xref="x",
+            yref="y",
+            line=dict(color="lightgray", width=1, dash="dot"),
+        )
+
+    fig.update_layout(
+        height=800,
+        title_font_size=20,
+        margin=dict(l=0, r=0, t=40, b=0),
+        showlegend=show_legend,
+        xaxis_range=xaxis_range
     )
 
-# Update layout for dynamic zoom and better visualization
-fig.update_layout(
-    height=800,  # Adjust chart height to fit full screen
-    title_font_size=20,
-    margin=dict(l=0, r=0, t=40, b=0),  # Minimize margins
-    showlegend=show_legend,  # Toggle legend based on the checkbox
-    xaxis_range=xaxis_range  # Set initial zoom range
-)
+    tick_dates = pd.date_range(start=start_range, end=end_range, freq="D")
+    tick_labels = [d.strftime("%a")[0] + "<br>" + d.strftime("%d/%m") for d in tick_dates]
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=tick_dates,
+        ticktext=tick_labels,
+        tickangle=0,
+        tickfont=dict(size=10),
+    )
 
-# Generate one tick per day from start_range to end_range
-tick_dates = pd.date_range(start=start_range, end=end_range, freq="D")
+    return fig
 
-# Create custom labels: weekday initial + dd/mm
-tick_labels = [d.strftime("%a")[0] + "<br>" + d.strftime("%d/%m") for d in tick_dates]
-
-fig.update_xaxes(
-    tickmode="array",
-    tickvals=tick_dates,
-    ticktext=tick_labels,
-    tickangle=0,  # vertical or horizontal
-    tickfont=dict(size=10),
-)
+file_hash = hash_file_contents(file_path)
 
 # Display the Gantt chart full screen
+fig = generate_gantt_chart(df, view_mode, show_legend)
 st.plotly_chart(fig, use_container_width=True)
+
 
 # Function to read contents of type_list.txt and display line by line
 def load_type_list(file_path):
