@@ -151,19 +151,23 @@ st.title("SoF Vehicle Assignments")
 
 view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
 
-# Load the data
-try:
-    df = pd.read_excel(file_path, engine="openpyxl")
-    df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
-    df['Return Date'] = pd.to_datetime(df['Return Date'])
-    df["Unique ID"] = df.index  # Add a unique identifier for each row
-    df['Notes'] = df['Notes'].astype(str)
+if "df" not in st.session_state:
+    try:
+        df = pd.read_excel(file_path, engine="openpyxl")
+        df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
+        df['Return Date'] = pd.to_datetime(df['Return Date'])
+        df["Unique ID"] = df.index  # Add a unique identifier for each row
+        df['Notes'] = df['Notes'].astype(str)
+        df = df.sort_values(by="Type", ascending=True)
 
-    # Sort the DataFrame by the 'Type' column (ascending order)
-    df = df.sort_values(by="Type", ascending=True)
-except Exception as e:
-    st.error(f"Error loading Excel file: {e}")
-    st.stop()
+        st.session_state.df = df.reset_index(drop=True)  # store in session state
+
+    except Exception as e:
+        st.error(f"Error loading Excel file: {e}")
+        st.stop()
+
+# Always work with session state df from here
+df = st.session_state.df
 
 # Full-screen Gantt chart
 #st.title("Interactive Vehicle Assignment Gantt Chart")
@@ -580,20 +584,22 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     new_row["Authorized Drivers"] = ", ".join(new_row["Authorized Drivers"])
                     df.loc[len(df)] = new_row
                     st.success("New entry added.")
+
                 # 2. Edit
-                if submitted:
-                    if selected is not None:
-                        for k, v in edits.items():
-                            if k != "Unique ID":
-                                df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
-                        st.success("Entry edited successfully.")
+                if selected is not None:
+                    for k, v in edits.items():
+                        if k != "Unique ID":
+                            df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
+                    st.success("Entry edited successfully.")
+
                 # 3. Single delete
                 if delete_id is not None and confirm_delete:
                     df.drop(index=delete_id, inplace=True)
                     st.success(f"Entry {delete_id} deleted.")
+
                 # 4. Bulk delete
                 if start_dt and end_dt and confirm_bulk:
-                    mask = (df["Checkout Date"]>=pd.Timestamp(start_dt)) & (df["Return Date"]<=pd.Timestamp(end_dt))
+                    mask = (df["Checkout Date"] >= pd.Timestamp(start_dt)) & (df["Return Date"] <= pd.Timestamp(end_dt))
                     df.drop(index=df[mask].index, inplace=True)
                     st.success("Bulk deletion complete.")
 
@@ -601,22 +607,23 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 df.reset_index(drop=True, inplace=True)
                 df["Unique ID"] = df.index
 
+                # ✅ UPDATE SESSION STATE for chart refresh
+                st.session_state.df = df
+
                 # 5. WRITE ONCE
                 df.to_excel(file_path, index=False, engine="openpyxl")
 
                 # 6. UPDATE LOOKUP FILES IF THEY CHANGED
-                # (You'd compare old vs new and write only if different.)
-                # Example for assigned_to_list:
                 current_assigned = get_assigned_to_list()
                 if set(df["Assigned to"].unique()) != set(current_assigned):
-                    with open("assigned_to_list.txt","w") as f:
+                    with open("assigned_to_list.txt", "w") as f:
                         for x in sorted(df["Assigned to"].unique()):
                             f.write(f"{x}\n")
-                    get_assigned_to_list.clear()  # reset singleton
+                    get_assigned_to_list.clear()
 
                 # 7. GIT PUSH
                 push_changes_to_github()
 
-
             st.success("All changes committed and pushed to GitHub.")
+
             st.rerun()
