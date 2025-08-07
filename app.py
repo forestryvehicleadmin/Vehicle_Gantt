@@ -481,37 +481,64 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             # FINAL SUBMIT
             submitted = st.form_submit_button("Submit Changes")
 
-            # … your existing code above …
-
-            # ---------------------------
-            # Inline Data Editor Section
-            # ---------------------------
+        # ─────────────────────────────────────────────────────────────────────────────
+        # INLINE EDITOR WITH FILTERS (outside any st.form)
+        # ─────────────────────────────────────────────────────────────────────────────
         with st.expander("🔄 Inline Table Editor"):
-            st.subheader("Edit All Entries Inline")
-            # Render an editable version of the DataFrame
-            edited_df = st.data_editor(
-                df,
+            st.subheader("Filter & Edit Entries Inline")
+
+            # 1) FILTER CONTROLS
+            type_opts = get_type_list()
+            assigned_opts = get_assigned_to_list()
+            status_opts = ["Confirmed", "Reserved"]
+
+            cols = st.columns(3)
+            with cols[0]:
+                sel_types = st.multiselect("Filter by Type", options=type_opts, default=type_opts)
+            with cols[1]:
+                sel_assigned = st.multiselect("Filter by Assigned to", options=assigned_opts, default=assigned_opts)
+            with cols[2]:
+                sel_status = st.multiselect("Filter by Status", options=status_opts, default=status_opts)
+
+            # Apply the filters
+            mask = (
+                    df["Type"].isin(sel_types) &
+                    df["Assigned to"].isin(sel_assigned) &
+                    df["Status"].isin(sel_status)
+            )
+            df_filtered = df[mask].copy()
+
+            st.markdown(f"Showing {len(df_filtered)}/{len(df)} rows matching filters.")
+
+            # 2) RENDER DATA EDITOR
+            edited = st.data_editor(
+                df_filtered,
                 key="edit_table",
                 num_rows="dynamic",
                 use_container_width=True
             )
 
-            # Button to commit inline edits
+            # 3) SAVE BUTTON
             if st.button("Save Inline Edits"):
-                # Reassign Unique IDs based on new row order
-                edited_df = edited_df.copy()
-                edited_df.reset_index(drop=True, inplace=True)
-                edited_df["Unique ID"] = edited_df.index
+                # Merge edits back into the main df by Unique ID
+                for _, row in edited.iterrows():
+                    uid = row["Unique ID"]
+                    if uid in df.index:
+                        df.loc[uid, :] = row
 
-                # Write back to Excel
-                edited_df.to_excel(file_path, index=False, engine="openpyxl")
-                st.success("Changes written to Excel.")
+                # Reassign Unique IDs just in case order changed
+                df.reset_index(drop=True, inplace=True)
+                df["Unique ID"] = df.index
 
-                # Push to GitHub
+                # Write to Excel and push
+                df.to_excel(file_path, index=False, engine="openpyxl")
+                st.success("Inline edits written to Excel.")
+
                 with st.spinner("Pushing inline edits to GitHub..."):
                     push_changes_to_github()
 
-            # … your existing code below …
+                # Optionally trigger a rerun to refresh everything
+                st.experimental_rerun()
 
         # AFTER form submit: process all pending actions
         if submitted:
