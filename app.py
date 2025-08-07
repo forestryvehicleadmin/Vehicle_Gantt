@@ -446,23 +446,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             if selected is not None:
                 row = df[df["Unique ID"] == selected].iloc[0]
 
-                # Assigned to
-                edits["Assigned to"] = st.selectbox("Assigned to:", [""] + assigned_to_list,
-                                                    index=([""] + assigned_to_list).index(row["Assigned to"]),
-                                                    key=f"edit_assigned_to_{selected}")
-
-                # Type and Vehicle #
-                current_type = row["Type"]
-                edits["Type"] = st.selectbox("Type (Vehicle):", [""] + type_list,
-                                             index=([""] + type_list).index(current_type),
-                                             key=f"edit_type_{selected}")
-                edited_vehicle_no = None
-                if edits["Type"]:
-                    try:
-                        edited_vehicle_no = int(edits["Type"].split("-")[0].strip())
-                    except ValueError:
-                        st.error("Type must start with a numeric code.")
-                edits["Vehicle #"] = edited_vehicle_no
+                st.write(row)
 
                 # Status
                 edits["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"],
