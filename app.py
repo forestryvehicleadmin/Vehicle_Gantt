@@ -578,15 +578,16 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     st.success("New entry added.")
                 # 2. Edit
                 if selected is not None:
-                    if selected in df["Unique ID"].values:
-                        df.set_index("Unique ID", inplace=True)  # temporary
-                        for k, v in edits.items():
-                            if k != "Unique ID":
-                                df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
-                        df.reset_index(inplace=True)
-                        st.success("Entry edited successfully.")
-                    else:
-                        st.warning("Could not find selected entry to edit.")
+                    if selected and submitted:
+                        row_idx = df[df["Unique ID"] == selected].index
+                        if not row_idx.empty:
+                            idx = row_idx[0]
+                            for k, v in edits.items():
+                                if k != "Unique ID":
+                                    df.at[idx, k] = ", ".join(v) if k == "Authorized Drivers" else v
+                            st.success("Entry edited successfully.")
+                        else:
+                            st.error("Selected entry not found.")
 
                 # 3. Single delete
                 if delete_id is not None and confirm_delete:
