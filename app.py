@@ -435,7 +435,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 options=[None] + df["Unique ID"].tolist(),
                 format_func=lambda x: (
                     "Select…" if x is None else
-                    (lambda row: f"{row['Assigned to']} ({row['Checkout Date'].date()}→{row['Return Date'].date()})")(
+                    (lambda row: f"{row['Vehicle #']} {row['Assigned to']} ({row['Checkout Date'].date()}→{row['Return Date'].date()})")(
                         df.loc[df["Unique ID"] == x].iloc[0]
                     )
                 )
