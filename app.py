@@ -115,6 +115,8 @@ def push_changes_to_github():
 
         # Push changes to GitHub
         subprocess.run(["git", "push", "ssh-origin", GITHUB_BRANCH], check=True)
+
+        st.success("Changes successfully pushed to GitHub!")
     except subprocess.CalledProcessError as e:
         st.error(f"Failed to push changes: {e}")
     finally:
@@ -162,7 +164,6 @@ try:
 except Exception as e:
     st.error(f"Error loading Excel file: {e}")
     st.stop()
-
 
 # Full-screen Gantt chart
 #st.title("Interactive Vehicle Assignment Gantt Chart")
@@ -579,22 +580,20 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     new_row["Authorized Drivers"] = ", ".join(new_row["Authorized Drivers"])
                     df.loc[len(df)] = new_row
                     st.success("New entry added.")
-
                 # 2. Edit
-                if selected is not None:
-                    for k, v in edits.items():
-                        if k != "Unique ID":
-                            df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
-                    st.success("Entry edited successfully.")
-
+                if submitted:
+                    if selected is not None:
+                        for k, v in edits.items():
+                            if k != "Unique ID":
+                                df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
+                        st.success("Entry edited successfully.")
                 # 3. Single delete
                 if delete_id is not None and confirm_delete:
                     df.drop(index=delete_id, inplace=True)
                     st.success(f"Entry {delete_id} deleted.")
-
                 # 4. Bulk delete
                 if start_dt and end_dt and confirm_bulk:
-                    mask = (df["Checkout Date"] >= pd.Timestamp(start_dt)) & (df["Return Date"] <= pd.Timestamp(end_dt))
+                    mask = (df["Checkout Date"]>=pd.Timestamp(start_dt)) & (df["Return Date"]<=pd.Timestamp(end_dt))
                     df.drop(index=df[mask].index, inplace=True)
                     st.success("Bulk deletion complete.")
 
@@ -606,15 +605,16 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 df.to_excel(file_path, index=False, engine="openpyxl")
 
                 # 6. UPDATE LOOKUP FILES IF THEY CHANGED
+                # (You'd compare old vs new and write only if different.)
+                # Example for assigned_to_list:
                 current_assigned = get_assigned_to_list()
                 if set(df["Assigned to"].unique()) != set(current_assigned):
-                    with open("assigned_to_list.txt", "w") as f:
+                    with open("assigned_to_list.txt","w") as f:
                         for x in sorted(df["Assigned to"].unique()):
                             f.write(f"{x}\n")
-                    get_assigned_to_list.clear()
+                    get_assigned_to_list.clear()  # reset singleton
 
                 # 7. GIT PUSH
                 push_changes_to_github()
-
 
             st.success("All changes committed and pushed to GitHub.")
