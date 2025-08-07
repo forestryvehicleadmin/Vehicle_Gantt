@@ -602,9 +602,6 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 df.reset_index(drop=True, inplace=True)
                 df["Unique ID"] = df.index
 
-                # ✅ UPDATE SESSION STATE for chart refresh
-                st.session_state.df = df
-
                 # 5. WRITE ONCE
                 df.to_excel(file_path, index=False, engine="openpyxl")
 
