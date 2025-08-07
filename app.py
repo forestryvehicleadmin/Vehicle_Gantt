@@ -443,37 +443,45 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             )
             edits = {}
             if selected is not None:
-                row = df[df["Unique ID"] == selected].iloc[0]  # get the row matching Unique ID
+                row = df[df["Unique ID"] == selected].iloc[0]
 
-                st.write(row)  # show row details
+                st.write(row)
 
                 for col in df.columns:
                     current_val = row[col]
+                    widget_key = f"edit_{col}_{selected}"
+
                     if col == "Assigned to":
                         edits[col] = st.selectbox(col + ":", assigned_to_list,
-                                                  index=assigned_to_list.index(current_val))
+                                                  index=assigned_to_list.index(current_val),
+                                                  key=widget_key)
                     elif col == "Type":
                         edits[col] = st.selectbox(col + ":", type_list,
-                                                  index=type_list.index(current_val))
+                                                  index=type_list.index(current_val),
+                                                  key=widget_key)
                     elif col == "Status":
                         edits[col] = st.selectbox(col + ":", ["Confirmed", "Reserved"],
-                                                  index=["Confirmed", "Reserved"].index(current_val))
+                                                  index=["Confirmed", "Reserved"].index(current_val),
+                                                  key=widget_key)
                     elif col == "Authorized Drivers":
                         edits[col] = st.multiselect(
                             col + ":", drivers_list,
-                            default=(current_val or "").split(", ")
+                            default=(current_val or "").split(", "),
+                            key=widget_key
                         )
                     elif pd.api.types.is_datetime64_any_dtype(df[col]):
                         d = st.date_input(col + ":",
-                                          current_val.date() if not pd.isnull(current_val) else datetime.today())
+                                          current_val.date() if not pd.isnull(current_val) else datetime.today(),
+                                          key=widget_key)
                         edits[col] = datetime.combine(
                             d,
                             datetime.max.time() if col.lower() == "return date" else datetime.min.time()
                         )
                     elif pd.api.types.is_numeric_dtype(df[col]):
-                        edits[col] = st.number_input(col + ":", value=current_val if not pd.isnull(current_val) else 0)
+                        edits[col] = st.number_input(col + ":", value=current_val if not pd.isnull(current_val) else 0,
+                                                     key=widget_key)
                     else:
-                        edits[col] = st.text_input(col + ":", value=current_val or "")
+                        edits[col] = st.text_input(col + ":", value=current_val or "", key=widget_key)
 
                     submitted = st.form_submit_button("Submit Changes")
 
