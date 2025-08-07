@@ -439,59 +439,59 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     )
                 ))
 
-edits = {}
-if selected is not None:
-    row = df[df["Unique ID"] == selected].iloc[0]
+            edits = {}
+            if selected is not None:
+                row = df[df["Unique ID"] == selected].iloc[0]
 
-    # Assigned to
-    edits["Assigned to"] = st.selectbox("Assigned to:", [""] + assigned_to_list,
-                                        index=([""] + assigned_to_list).index(row["Assigned to"]),
-                                        key=f"edit_assigned_to_{selected}")
+                # Assigned to
+                edits["Assigned to"] = st.selectbox("Assigned to:", [""] + assigned_to_list,
+                                                    index=([""] + assigned_to_list).index(row["Assigned to"]),
+                                                    key=f"edit_assigned_to_{selected}")
 
-    # Type and Vehicle #
-    current_type = row["Type"]
-    edits["Type"] = st.selectbox("Type (Vehicle):", [""] + type_list,
-                                 index=([""] + type_list).index(current_type),
-                                 key=f"edit_type_{selected}")
-    edited_vehicle_no = None
-    if edits["Type"]:
-        try:
-            edited_vehicle_no = int(edits["Type"].split("-")[0].strip())
-        except ValueError:
-            st.error("Type must start with a numeric code.")
-    edits["Vehicle #"] = edited_vehicle_no
+                # Type and Vehicle #
+                current_type = row["Type"]
+                edits["Type"] = st.selectbox("Type (Vehicle):", [""] + type_list,
+                                             index=([""] + type_list).index(current_type),
+                                             key=f"edit_type_{selected}")
+                edited_vehicle_no = None
+                if edits["Type"]:
+                    try:
+                        edited_vehicle_no = int(edits["Type"].split("-")[0].strip())
+                    except ValueError:
+                        st.error("Type must start with a numeric code.")
+                edits["Vehicle #"] = edited_vehicle_no
 
-    # Status
-    edits["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"],
-                                   index=["Confirmed", "Reserved"].index(row["Status"]),
-                                   key=f"edit_status_{selected}")
+                # Status
+                edits["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"],
+                                               index=["Confirmed", "Reserved"].index(row["Status"]),
+                                               key=f"edit_status_{selected}")
 
-    # Authorized Drivers
-    edits["Authorized Drivers"] = st.multiselect(
-        "Authorized Drivers:", drivers_list,
-        default=(row["Authorized Drivers"] or "").split(", "),
-        key=f"edit_auth_drivers_{selected}"
-    )
+                # Authorized Drivers
+                edits["Authorized Drivers"] = st.multiselect(
+                    "Authorized Drivers:", drivers_list,
+                    default=(row["Authorized Drivers"] or "").split(", "),
+                    key=f"edit_auth_drivers_{selected}"
+                )
 
-    # All other fields
-    skip_cols = ["Unique ID", "Assigned to", "Type", "Vehicle #", "Status", "Authorized Drivers"]
-    for col in [c for c in df.columns if c not in skip_cols]:
-        widget_key = f"edit_{col}_{selected}"
-        current_val = row[col]
+                # All other fields
+                skip_cols = ["Unique ID", "Assigned to", "Type", "Vehicle #", "Status", "Authorized Drivers"]
+                for col in [c for c in df.columns if c not in skip_cols]:
+                    widget_key = f"edit_{col}_{selected}"
+                    current_val = row[col]
 
-        if pd.api.types.is_datetime64_any_dtype(df[col]):
-            d = st.date_input(col + ":",
-                              current_val.date() if not pd.isnull(current_val) else datetime.today(),
-                              key=widget_key)
-            edits[col] = datetime.combine(
-                d,
-                datetime.max.time() if col.lower() == "return date" else datetime.min.time()
-            )
-        elif pd.api.types.is_numeric_dtype(df[col]):
-            edits[col] = st.number_input(col + ":", value=current_val if not pd.isnull(current_val) else 0,
-                                         key=widget_key)
-        else:
-            edits[col] = st.text_input(col + ":", value=current_val or "", key=widget_key)
+                    if pd.api.types.is_datetime64_any_dtype(df[col]):
+                        d = st.date_input(col + ":",
+                                          current_val.date() if not pd.isnull(current_val) else datetime.today(),
+                                          key=widget_key)
+                        edits[col] = datetime.combine(
+                            d,
+                            datetime.max.time() if col.lower() == "return date" else datetime.min.time()
+                        )
+                    elif pd.api.types.is_numeric_dtype(df[col]):
+                        edits[col] = st.number_input(col + ":", value=current_val if not pd.isnull(current_val) else 0,
+                                                     key=widget_key)
+                    else:
+                        edits[col] = st.text_input(col + ":", value=current_val or "", key=widget_key)
 
 
             st.markdown("---")
