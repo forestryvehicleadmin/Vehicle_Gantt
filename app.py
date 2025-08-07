@@ -347,349 +347,182 @@ with st.expander("View and Filter Data Table"):
     columns = st.multiselect("Select Columns to Display:", df.columns, default=df.columns.tolist())
     st.dataframe(df[columns])  # Display the selected columns
 
-# Secure edit/delete and create entry section
-with st.expander("Manage Entries (Create, Edit, Delete) VEM use only."):
 
-    # Passcode validation
+# 1. CACHE LOOKUP LISTS WITH st.cache_data INSTEAD OF experimental_singleton
+def _load_list(path: str) -> list[str]:
+    try:
+        with open(path, "r") as f:
+            return [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        return []
+
+@st.cache_data
+def get_type_list() -> list[str]:
+    return _load_list("type_list.txt")
+
+@st.cache_data
+def get_assigned_to_list() -> list[str]:
+    return _load_list("assigned_to_list.txt")
+
+@st.cache_data
+def get_drivers_list() -> list[str]:
+    return _load_list("authorized_drivers_list.txt")
+
+# … later, when you detect list‐changes and rewrite a file …
+# e.g. after updating assigned_to_list.txt:
+with open("assigned_to_list.txt", "w") as f:
+    for name in sorted(df["Assigned to"].unique()):
+        f.write(f"{name}\n")
+# invalidate that cache so next call re-reads the file
+get_assigned_to_list.clear()
+
+# … (Gantt chart code remains unchanged) …
+
+# 2. MANAGE ENTRIES SECTION
+with st.expander("🔧 Manage Entries (VEM use only)"):
     passcode = st.text_input("Enter the 4-digit passcode:", type="password")
-    if passcode == "1234":  # Replace with your secure passcode
+    if passcode != "1234":
+        st.error("Incorrect passcode. Access denied.")
+    else:
         st.success("Access granted!")
 
-        # **1. Create a New Entry**
-        # Function to load and parse the type list from the TXT file
-        def load_type_list(file_path):
-            try:
-                with open(file_path, "r") as file:
-                    lines = file.readlines()
-                    return [line.strip() for line in lines if line.strip()]  # Remove empty lines
-            except FileNotFoundError:
-                return []
+        # Initialize pending actions if not present
+        if "pending_actions" not in st.session_state:
+            st.session_state.pending_actions = []
 
+        # Begin batched form
+        with st.form("manage_entries"):
 
-        # Function to load the authorized drivers from the TXT file
-        def load_drivers_list(file_path):
-            try:
-                with open(file_path, "r") as file:
-                    return [line.strip() for line in file if line.strip()]  # Remove empty lines
-            except FileNotFoundError:
-                return []
+            st.subheader("1. Create New Entry")
+            # Load cached lists
+            type_list = get_type_list()
+            assigned_to_list = get_assigned_to_list()
+            drivers_list = get_drivers_list()
 
-
-        # Function to load the "Assigned to" list from the TXT file
-        def load_assigned_to_list(file_path):
-            try:
-                with open(file_path, "r") as file:
-                    return [line.strip() for line in file if line.strip()]  # Remove empty lines
-            except FileNotFoundError:
-                return []
-
-
-        # Load the type list from the uploaded file
-        type_list = load_type_list("type_list.txt")
-        # Load the authorized drivers list
-        authorized_drivers_list = load_drivers_list("authorized_drivers_list.txt")
-        # Load the assigned to list
-        assigned_to_list = load_assigned_to_list("assigned_to_list.txt")
-
-        st.subheader("Create New Entry")
-        new_entry = {}
-
-        # Dynamic dropdown options for Assigned to, Type, and Authorized Drivers
-        assigned_to_options = df["Assigned to"].dropna().unique().tolist()
-        type_options = df["Type"].dropna().unique().tolist()  # Type field options
-        driver_options = df["Authorized Drivers"].dropna().str.split(",").explode().unique().tolist()
-
-        # "Assigned to" field with an option to add a new name
-        new_entry["Assigned to"] = st.selectbox(
-            "Assigned to:", options=[""] + assigned_to_list
-        )
-
-
-        def save_assigned_to_list(file_path, data):
-            """Save the assigned to list to a file."""
-            with open(file_path, "w") as file:
-                for item in data:
-                    file.write(f"{item}\n")
-
-
-        # Function to handle new "Assigned To" addition
-        def add_new_assigned_to():
-            # Access the global input value
-            new_assigned_to = st.session_state["new_assigned_to"]
-            if new_assigned_to and new_assigned_to not in assigned_to_list:
-                assigned_to_list.append(new_assigned_to)
-
-                # Save the updated list to the file
-                save_assigned_to_list("assigned_to_list.txt", assigned_to_list)
-
-                # Display success message and updated list
-                st.success(f"'Assigned To' '{new_assigned_to}' successfully added.")
-
-                # Push changes to GitHub
-                push_changes_to_github()
-
-                # Clear the input field
-                st.session_state["new_assigned_to"] = ""  # Reset the text input
-            elif not new_assigned_to:
-                st.warning("Input cannot be empty.")
-            else:
-                st.warning("This entry already exists in the list.")
-
-
-        # Text input with `on_change` to trigger the callback
-        st.text_input(
-            "Enter new 'Assigned To':",
-            key="new_assigned_to",  # Store the input in session state
-            on_change=add_new_assigned_to,
-        )
-
-        # "Type" field (dropdown for vehicle types)
-        new_entry["Type"] = st.radio("Type (Vehicle):", options= type_list)
-
-        # Automatically populate the Vehicle # based on the first 3 characters of Type
-        if new_entry["Type"]:
-            try:
-                new_entry["Vehicle #"] = int(new_entry["Type"].split("-")[0].strip())  # Extract first part as integer
-            except ValueError:
-                st.error("The Type must start with a numeric value for Vehicle #.")
-                new_entry["Vehicle #"] = None
-        else:
-            new_entry["Vehicle #"] = None
-
-        # "Status" field as a Boolean dropdown
-        new_entry["Status"] = st.selectbox("Status:", options=["Confirmed", "Reserved"])
-
-        new_entry["Authorized Drivers"] = st.multiselect(
-            "Authorized Drivers (May select multiple):",
-            options=authorized_drivers_list,
-            default=[]
-        )
-
-
-        def save_drivers_list(file_path, data):
-            """Save the authorized drivers list to a file."""
-            with open(file_path, "w") as file:
-                for item in data:
-                    file.write(f"{item}\n")
-
-
-        # Function to handle new authorized driver addition
-        def add_new_driver():
-            # Access the global input value
-            new_driver = st.session_state["new_driver"]
-            if new_driver and new_driver not in authorized_drivers_list:
-                authorized_drivers_list.append(new_driver)
-
-                # Save the updated list to the file
-                save_drivers_list("authorized_drivers_list.txt", authorized_drivers_list)
-
-                # Display success message and updated list
-                st.success(f"Authorized driver '{new_driver}' successfully added.")
-
-                # Push changes to GitHub
-                push_changes_to_github()
-
-                # Clear the input field
-                st.session_state["new_driver"] = ""  # Reset the text input
-            elif not new_driver:
-                st.warning("Input cannot be empty.")
-            else:
-                st.warning("This driver already exists in the list.")
-
-
-        # Text input with `on_change` to trigger the callback
-        st.text_input(
-            "Enter new Authorized Driver:",
-            key="new_driver",  # Store the input in session state
-            on_change=add_new_driver,
-        )
-
-        # Fields for other columns
-        for column in df.columns[:-1]:  # Exclude "Unique ID"
-            if column not in ["Assigned to", "Type", "Vehicle #", "Status",
-                              "Authorized Drivers"]:  # Already handled above
-                if pd.api.types.is_datetime64_any_dtype(df[column]):
-                    date_val = st.date_input(f"{column}:", value=datetime.today())
-                    if column.lower() == "return date":
-                        # Set return date to 11:59:59 PM
-                        new_entry[column] = datetime.combine(date_val, datetime.max.time().replace(microsecond=0))
-                    else:
-                        new_entry[column] = datetime.combine(date_val, datetime.min.time())
-                elif pd.api.types.is_numeric_dtype(df[column]):
-                    new_entry[column] = st.number_input(f"{column}:", value=0)
-                else:
-                    new_entry[column] = st.text_input(f"{column}:")
-
-        # Add entry button
-        if st.button("Add Entry"):
-            try:
-                if not new_entry["Assigned to"] or not new_entry["Type"]:
-                    st.error("Error: 'Assigned to' and 'Type' cannot be empty.")
-                elif new_entry["Checkout Date"] > new_entry["Return Date"]:
-                    st.error("Error: 'Checkout Date' cannot be after 'Return Date'.")
-                elif new_entry["Vehicle #"] is None:
-                    st.error("Error: Vehicle # could not be derived. Ensure Type starts with a numeric value.")
-                else:
-                    # Handle the Authorized Drivers as a comma-separated string
-                    new_entry["Authorized Drivers"] = ", ".join(new_entry["Authorized Drivers"])
-
-                    # Append the new entry to the DataFrame
-                    new_row_df = pd.DataFrame([new_entry])
-                    df = pd.concat([df, new_row_df], ignore_index=True)
-                    df.reset_index(drop=True, inplace=True)  # Reset index
-                    df["Unique ID"] = df.index  # Reassign Unique ID
-
-                    # Save the updated DataFrame to the Excel file
-                    df.to_excel(file_path, index=False, engine="openpyxl")
-                    push_changes_to_github()
-                    st.success("New entry added and saved successfully!")
-            except Exception as e:
-                st.error(f"Failed to add entry: {e}")
-
-        # **2. Edit Existing Entry**
-        st.subheader("Edit Entry")
-
-        # Dropdown to select an entry by Unique ID
-        selected_id = st.selectbox(
-            "Select an entry to edit:",
-            options=[None] + df["Unique ID"].tolist(),  # Add `None` as the default value
-            format_func=lambda
-                x: f"{df.loc[x, 'Assigned to']} ({df.loc[x, 'Checkout Date']} - {df.loc[x, 'Return Date']})"
-            if pd.notna(x) and x in df["Unique ID"].values else "Select an entry"  # Display a placeholder for `None`
-        )
-
-        if selected_id is not None:
-            # Proceed only if an entry is selected
-            st.write("Selected Entry Details:")
-            st.write(df.loc[selected_id])
-
-            # Dictionary to store the edited values
-            edited_row = {}
-
-            # Editable fields
-            for column in df.columns:
-                if column == "Assigned to":  # Make "Assigned to" a dropdown
-                    edited_row[column] = st.selectbox(
-                        f"{column}:",
-                        options=assigned_to_list,  # Use the predefined assigned_to_list
-                        index=assigned_to_list.index(df.loc[selected_id, column]) if df.loc[
-                                                                                         selected_id, column] in assigned_to_list else 0,
-                        key=f"edit_dropdown_{column}"
-                    )
-                elif column == "Type":  # Make "Type" a dropdown
-                    edited_row[column] = st.selectbox(
-                        f"{column}:",
-                        options=type_list,  # Use the predefined type_list
-                        index=type_list.index(df.loc[selected_id, column]) if df.loc[
-                                                                                  selected_id, column] in type_list else 0,
-                        key=f"edit_dropdown_{column}"
-                    )
-                elif column == "Status":  # Make "Status" a dropdown
-                    edited_row[column] = st.selectbox(
-                        f"{column}:",
-                        options=["Confirmed", "Reserved"],
-                        index=["Confirmed", "Reserved"].index(df.loc[selected_id, column]) if df.loc[
-                                                                                                  selected_id, column] in [
-                                                                                                  "Confirmed",
-                                                                                                  "Reserved"] else 0,
-                        key=f"edit_dropdown_{column}"
-                    )
-                elif column == "Authorized Drivers":  # Make "Authorized Drivers" a multi-select
-                    edited_row[column] = st.multiselect(
-                        f"{column}:",
-                        options=authorized_drivers_list,
-                        default=df.loc[selected_id, column].split(", ") if pd.notna(
-                            df.loc[selected_id, column]) else [],
-                        key=f"edit_multiselect_{column}"
-                    )
-                elif pd.api.types.is_datetime64_any_dtype(df[column]):  # Date fields
-                    selected_date = st.date_input(
-                        f"{column}:",
-                        value=pd.Timestamp(df.loc[selected_id, column]).date() if pd.notna(
-                            df.loc[selected_id, column]) else datetime.today().date(),
-                        key=f"edit_date_{column}"
-                    )
-                
-                    if column.lower() == "return date":
-                        edited_row[column] = datetime.combine(selected_date, datetime.max.time().replace(microsecond=0))
-                    else:
-                        edited_row[column] = datetime.combine(selected_date, datetime.min.time())
-                elif pd.api.types.is_numeric_dtype(df[column]):  # Numeric fields
-                    edited_row[column] = st.number_input(
-                        f"{column}:",
-                        value=df.loc[selected_id, column] if pd.notna(df.loc[selected_id, column]) else 0,
-                        key=f"edit_number_{column}"
-                    )
-                else:  # Text fields
-                    edited_row[column] = st.text_input(
-                        f"{column}:",
-                        value=df.loc[selected_id, column] if pd.notna(df.loc[selected_id, column]) else "",
-                        key=f"edit_text_{column}"
-                    )
-
-            # Button to save changes
-            if st.button("Update Entry"):
+            # New entry container
+            new = {}
+            new["Assigned to"] = st.selectbox("Assigned to:", [""] + assigned_to_list)
+            new_type = st.selectbox("Type (Vehicle):", [""] + type_list)
+            new["Type"] = new_type
+            new_vehicle_no = None
+            if new_type:
                 try:
-                    for key, value in edited_row.items():
-                        if key == "Authorized Drivers":  # Handle multi-select as a comma-separated string
-                            value = ", ".join(value)
-                        df.at[selected_id, key] = value
-                    df.to_excel(file_path, index=False, engine="openpyxl")
-                    push_changes_to_github()
-                    st.success("Entry updated successfully!")
-                except Exception as e:
-                    st.error(f"Failed to update entry: {e}")
-        else:
-            st.info("Please select an entry to edit.")
+                    new_vehicle_no = int(new_type.split("-")[0].strip())
+                except ValueError:
+                    st.error("Type must start with a numeric code.")
+            new["Vehicle #"] = new_vehicle_no
+            new["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"])
+            new["Authorized Drivers"] = st.multiselect("Authorized Drivers:", drivers_list)
 
-        # **3. Delete an Entry**
-        st.subheader("Delete Entry:Save changes to save to DF")
-        if st.button("Delete Entry"):
-            df = df.drop(index=selected_id).reset_index(drop=True)  # Reset index after deletion
-            df["Unique ID"] = df.index  # Reassign Unique ID
-            df.to_excel(file_path, index=False, engine="openpyxl")
-            st.success("Entry deleted successfully!")
+            # Date and other fields
+            for col in [c for c in df.columns if c not in [
+                    "Unique ID","Assigned to","Type","Vehicle #","Status","Authorized Drivers"]]:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    dt = st.date_input(col + ":", value=datetime.today())
+                    new[col] = datetime.combine(
+                        dt,
+                        datetime.max.time() if col.lower()=="return date" else datetime.min.time()
+                    )
+                elif pd.api.types.is_numeric_dtype(df[col]):
+                    new[col] = st.number_input(col + ":", value=0)
+                else:
+                    new[col] = st.text_input(col + ":")
 
-        # Bulk Delete Entries by Date Range
-        st.subheader("Bulk Delete Entries (Save copy before deleting):Save changes to save to DF")
-        start_date = st.date_input("Start Date:", value=None)
-        end_date = st.date_input("End Date:", value=None)
+            st.markdown("---")
+            st.subheader("2. Edit Existing Entry")
+            selected = st.selectbox(
+                "Select entry to edit:",
+                options=[None] + df["Unique ID"].tolist(),
+                format_func=lambda x: (
+                    "Select…" if x is None else
+                    f"{df.at[x,'Assigned to']} ({df.at[x,'Checkout Date'].date()}→{df.at[x,'Return Date'].date()})"
+                )
+            )
+            edits = {}
+            if selected is not None:
+                st.write(df.loc[selected])
+                for col in df.columns:
+                    if col == "Assigned to":
+                        edits[col] = st.selectbox(col + ":", assigned_to_list,
+                                                 index=assigned_to_list.index(df.at[selected,col]))
+                    elif col == "Type":
+                        edits[col] = st.selectbox(col + ":", type_list,
+                                                 index=type_list.index(df.at[selected,col]))
+                    elif col == "Status":
+                        edits[col] = st.selectbox(col + ":", ["Confirmed","Reserved"],
+                                                 index=["Confirmed","Reserved"].index(df.at[selected,col]))
+                    elif col == "Authorized Drivers":
+                        edits[col] = st.multiselect(
+                            col + ":", drivers_list,
+                            default=(df.at[selected,col] or "").split(", ")
+                        )
+                    elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                        d = st.date_input(col + ":", df.at[selected,col].date())
+                        edits[col] = datetime.combine(
+                            d,
+                            datetime.max.time() if col.lower()=="return date" else datetime.min.time()
+                        )
+                    elif pd.api.types.is_numeric_dtype(df[col]):
+                        edits[col] = st.number_input(col + ":", df.at[selected,col])
+                    else:
+                        edits[col] = st.text_input(col + ":", df.at[selected,col] or "")
 
-        # Convert `start_date` and `end_date` to `pd.Timestamp`
-        start_date = pd.Timestamp(start_date)
-        end_date = pd.Timestamp(end_date)
+            st.markdown("---")
+            st.subheader("3. Delete Entry")
+            delete_id = st.selectbox("Select entry to delete:", options=[None]+df["Unique ID"].tolist())
+            confirm_delete = st.checkbox("Confirm deletion of selected entry")
 
-        # Filter the entries within the specified date range
-        filtered_df = df[(df["Checkout Date"] >= start_date) & (df["Return Date"] <= end_date)]
+            st.markdown("---")
+            st.subheader("4. Bulk Delete by Date Range")
+            start_dt = st.date_input("Start Date for bulk delete:", value=None)
+            end_dt = st.date_input("End Date for bulk delete:", value=None)
+            confirm_bulk = st.checkbox("Confirm bulk deletion")
 
-        st.write("Entries to be deleted:")
-        st.dataframe(filtered_df)
+            # FINAL SUBMIT
+            submitted = st.form_submit_button("Submit Changes")
 
-        # First confirmation button
-        if st.button("Confirm Bulk Deletion"):
-            st.warning("Are you sure? This action cannot be undone!")
-            # Second confirmation button
-            if st.button("Confirm and Delete"):
-                try:
-                    # Drop the filtered rows
-                    df = df.drop(filtered_df.index).reset_index(drop=True)
-                    df["Unique ID"] = df.index  # Reassign Unique ID
+        # AFTER form submit: process all pending actions
+        if submitted:
+            with st.spinner("Applying your changes…"):
+                # 1. Create
+                if new["Assigned to"] and new["Type"] and new["Vehicle #"] is not None:
+                    new_row = new.copy()
+                    new_row["Authorized Drivers"] = ", ".join(new_row["Authorized Drivers"])
+                    df.loc[len(df)] = new_row
+                    st.success("New entry added.")
+                # 2. Edit
+                if selected is not None and edits:
+                    for k, v in edits.items():
+                        df.at[selected, k] = (", ".join(v) if k=="Authorized Drivers" else v)
+                    st.success("Entry updated.")
+                # 3. Single delete
+                if delete_id is not None and confirm_delete:
+                    df.drop(index=delete_id, inplace=True)
+                    st.success(f"Entry {delete_id} deleted.")
+                # 4. Bulk delete
+                if start_dt and end_dt and confirm_bulk:
+                    mask = (df["Checkout Date"]>=pd.Timestamp(start_dt)) & (df["Return Date"]<=pd.Timestamp(end_dt))
+                    df.drop(index=df[mask].index, inplace=True)
+                    st.success("Bulk deletion complete.")
 
-                    # Save changes to the Excel file
-                    df.to_excel(file_path, index=False, engine="openpyxl")
-                    st.success("Selected entries have been deleted and saved successfully!")
-                except Exception as e:
-                    st.error(f"Failed to delete entries: {e}")
+                # REASSIGN UNIQUE ID & SORT
+                df.reset_index(drop=True, inplace=True)
+                df["Unique ID"] = df.index
 
-        # **Save Changes**
-        if st.button("Save Changes"):
-            try:
+                # 5. WRITE ONCE
                 df.to_excel(file_path, index=False, engine="openpyxl")
-                st.success("Changes saved to the Excel file!")
-                # Push changes to GitHub
-                push_changes_to_github()
-            except Exception as e:
-                st.error(f"Failed to save changes: {e}")
 
-    else:
-        st.error("Incorrect passcode. Access denied!")
+                # 6. UPDATE LOOKUP FILES IF THEY CHANGED
+                # (You'd compare old vs new and write only if different.)
+                # Example for assigned_to_list:
+                current_assigned = get_assigned_to_list()
+                if set(df["Assigned to"].unique()) != set(current_assigned):
+                    with open("assigned_to_list.txt","w") as f:
+                        for x in sorted(df["Assigned to"].unique()):
+                            f.write(f"{x}\n")
+                    get_assigned_to_list.clear()  # reset singleton
+
+                # 7. GIT PUSH
+                push_changes_to_github()
+
+            st.success("All changes committed and pushed to GitHub.")
