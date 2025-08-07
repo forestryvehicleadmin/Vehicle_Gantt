@@ -583,7 +583,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 # 2. Edit
                 if submitted:
                     if selected is not None:
-                        for k, v in edited_entry.items():
+                        for k, v in edits.items():
                             if k != "Unique ID":
                                 df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
                         st.success("Entry edited successfully.")
