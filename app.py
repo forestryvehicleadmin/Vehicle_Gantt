@@ -116,6 +116,7 @@ def push_changes_to_github():
         # Push changes to GitHub
         subprocess.run(["git", "push", "ssh-origin", GITHUB_BRANCH], check=True)
 
+        st.success("Changes successfully pushed to GitHub!")
     except subprocess.CalledProcessError as e:
         st.error(f"Failed to push changes: {e}")
     finally:
@@ -622,5 +623,5 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
 
                 # 7. GIT PUSH
                 push_changes_to_github()
-                hash_file_contents(file_path)
+
             st.success("All changes committed and pushed to GitHub.")
