@@ -599,6 +599,10 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 df.reset_index(drop=True, inplace=True)
                 df["Unique ID"] = df.index
 
+                # --- NEW: normalize date columns to midnight to prevent day‐offsets ---
+                df['Checkout Date'] = pd.to_datetime(df['Checkout Date']).dt.normalize()
+                df['Return Date'] = pd.to_datetime(df['Return Date']).dt.normalize()
+
                 # 5. WRITE ONCE
                 df.to_excel(file_path, index=False, engine="openpyxl")
 
