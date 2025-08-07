@@ -174,7 +174,7 @@ show_legend = st.checkbox("Show Legend", value=False)
 
 #@st.cache_data(show_spinner="Generating Gantt chart...")
 def generate_gantt_chart(df, view_mode, show_legend):
-    time.sleep(2)
+    time.sleep(1)
     df = df.copy()
     today = datetime.today()
     start_range = today - timedelta(weeks=2)
@@ -376,8 +376,6 @@ with open("assigned_to_list.txt", "w") as f:
         f.write(f"{name}\n")
 # invalidate that cache so next call re-reads the file
 get_assigned_to_list.clear()
-
-# … (Gantt chart code remains unchanged) …
 
 # 2. MANAGE ENTRIES SECTION
 with st.expander("🔧 Manage Entries (VEM use only)"):
@@ -585,7 +583,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 # 2. Edit
                 if selected is not None and edits:
                     for k, v in edits.items():
-                        df.at[selected, k] = (", ".join(v) if k=="Authorized Drivers" else v)
+                        df.loc[df["Unique ID"] == selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
                     st.success("Entry updated.")
                 # 3. Single delete
                 if delete_id is not None and confirm_delete:
