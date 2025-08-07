@@ -153,6 +153,7 @@ view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
 
 # Load the data
 try:
+    time.sleep(3.5)
     df = pd.read_excel(file_path, engine="openpyxl")
     df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
     df['Return Date'] = pd.to_datetime(df['Return Date'])
@@ -177,7 +178,6 @@ show_legend = st.checkbox("Show Legend", value=False)
 
 #@st.cache_data(show_spinner="Generating Gantt chart...")
 def generate_gantt_chart(df, view_mode, show_legend):
-    time.sleep(3.5)
     df = df.copy()
     today = datetime.today()
     start_range = today - timedelta(weeks=2)
