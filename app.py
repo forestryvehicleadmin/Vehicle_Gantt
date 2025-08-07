@@ -437,7 +437,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     (lambda row: f"{row['Vehicle #']}, {row['Assigned to']}, ({row['Checkout Date'].date()}→{row['Return Date'].date()})")(
                         df.loc[df["Unique ID"] == x].iloc[0]
                     )
-                )
+                ))
 
 edits = {}
 if selected is not None:
