@@ -475,6 +475,8 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     else:
                         edits[col] = st.text_input(col + ":", value=current_val or "")
 
+                    submitted = st.form_submit_button("Submit Changes")
+
             st.markdown("---")
             st.subheader("3. Delete Entry")
             delete_id = st.selectbox("Select entry to delete:", options=[None]+df["Unique ID"].tolist())
