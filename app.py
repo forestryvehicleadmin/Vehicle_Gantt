@@ -625,5 +625,3 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 push_changes_to_github()
 
             st.success("All changes committed and pushed to GitHub.")
-
-            st.rerun()
