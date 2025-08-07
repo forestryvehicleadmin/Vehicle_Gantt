@@ -603,6 +603,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 df['Checkout Date'] = pd.to_datetime(df['Checkout Date']).dt.normalize()
                 df['Return Date'] = pd.to_datetime(df['Return Date']).dt.normalize()
 
+
                 # 5. WRITE ONCE
                 df.to_excel(file_path, index=False, engine="openpyxl")
 
