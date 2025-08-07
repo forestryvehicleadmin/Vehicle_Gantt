@@ -149,23 +149,20 @@ st.title("SoF Vehicle Assignments")
 
 view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
 
-if "df" not in st.session_state:
-    try:
-        df = pd.read_excel(file_path, engine="openpyxl")
-        df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
-        df['Return Date'] = pd.to_datetime(df['Return Date'])
-        df["Unique ID"] = df.index  # Add a unique identifier for each row
-        df['Notes'] = df['Notes'].astype(str)
-        df = df.sort_values(by="Type", ascending=True)
+# Load the data
+try:
+    df = pd.read_excel(file_path, engine="openpyxl")
+    df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
+    df['Return Date'] = pd.to_datetime(df['Return Date'])
+    df["Unique ID"] = df.index  # Add a unique identifier for each row
+    df['Notes'] = df['Notes'].astype(str)
 
-        st.session_state.df = df.reset_index(drop=True)  # store in session state
+    # Sort the DataFrame by the 'Type' column (ascending order)
+    df = df.sort_values(by="Type", ascending=True)
+except Exception as e:
+    st.error(f"Error loading Excel file: {e}")
+    st.stop()
 
-    except Exception as e:
-        st.error(f"Error loading Excel file: {e}")
-        st.stop()
-
-# Always work with session state df from here
-df = st.session_state.df
 
 # Full-screen Gantt chart
 #st.title("Interactive Vehicle Assignment Gantt Chart")
@@ -621,6 +618,6 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
 
                 # 7. GIT PUSH
                 push_changes_to_github()
-                hash_file_contents(file_path)
+
 
             st.success("All changes committed and pushed to GitHub.")
