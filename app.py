@@ -435,8 +435,11 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 options=[None] + df["Unique ID"].tolist(),
                 format_func=lambda x: (
                     "Select…" if x is None else
-                    f"{df.at[x,'Assigned to']} ({df.at[x,'Checkout Date'].date()}→{df.at[x,'Return Date'].date()})"
+                    (lambda row: f"{row['Assigned to']} ({row['Checkout Date'].date()}→{row['Return Date'].date()})")(
+                        df.loc[df["Unique ID"] == x].iloc[0]
+                    )
                 )
+
             )
             edits = {}
             if selected is not None:
