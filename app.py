@@ -121,14 +121,6 @@ def push_changes_to_github():
     finally:
         # Optional cleanup of stash in case of errors
         subprocess.run(["git", "stash", "drop"], check=False, stderr=subprocess.DEVNULL)
-
-
-
-    #finally:
-        # Return to the original directory to avoid issues
-        #os.chdir("..")
-
-
 # Path to the Excel file
 file_path = r"Vehicle_Checkout_List.xlsx"
 
