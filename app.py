@@ -176,7 +176,7 @@ st.markdown("###")
 # Add a button to toggle the legend
 show_legend = st.checkbox("Show Legend", value=False)
 
-#@st.cache_data(show_spinner="Generating Gantt chart...")
+@st.cache_data(show_spinner="Generating Gantt chart...")
 def generate_gantt_chart(df, view_mode, show_legend):
     df = df.copy()
     today = datetime.today()
