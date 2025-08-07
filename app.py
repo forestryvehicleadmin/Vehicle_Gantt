@@ -154,8 +154,10 @@ view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
 # Load the data
 try:
     df = pd.read_excel(file_path, engine="openpyxl")
-    df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
-    df['Return Date'] = pd.to_datetime(df['Return Date'])
+    # Force to timezone‐naive datetime at 00:00
+    df['Checkout Date'] = pd.to_datetime(df['Checkout Date']).dt.normalize().dt.tz_localize(None)
+    df['Return Date']   = pd.to_datetime(df['Return Date']).dt.normalize().dt.tz_localize(None)
+
     df["Unique ID"] = df.index  # Add a unique identifier for each row
     df['Notes'] = df['Notes'].astype(str)
 
@@ -164,7 +166,6 @@ try:
 except Exception as e:
     st.error(f"Error loading Excel file: {e}")
     st.stop()
-
 # Full-screen Gantt chart
 #st.title("Interactive Vehicle Assignment Gantt Chart")
 st.markdown("###")
