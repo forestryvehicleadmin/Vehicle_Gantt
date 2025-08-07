@@ -481,6 +481,38 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             # FINAL SUBMIT
             submitted = st.form_submit_button("Submit Changes")
 
+            # … your existing code above …
+
+            # ---------------------------
+            # Inline Data Editor Section
+            # ---------------------------
+            with st.expander("🔄 Inline Table Editor"):
+                st.subheader("Edit All Entries Inline")
+                # Render an editable version of the DataFrame
+                edited_df = st.data_editor(
+                    df,
+                    key="edit_table",
+                    num_rows="dynamic",
+                    use_container_width=True
+                )
+
+                # Button to commit inline edits
+                if st.button("Save Inline Edits"):
+                    # Reassign Unique IDs based on new row order
+                    edited_df = edited_df.copy()
+                    edited_df.reset_index(drop=True, inplace=True)
+                    edited_df["Unique ID"] = edited_df.index
+
+                    # Write back to Excel
+                    edited_df.to_excel(file_path, index=False, engine="openpyxl")
+                    st.success("Changes written to Excel.")
+
+                    # Push to GitHub
+                    with st.spinner("Pushing inline edits to GitHub..."):
+                        push_changes_to_github()
+
+            # … your existing code below …
+
         # AFTER form submit: process all pending actions
         if submitted:
             with st.spinner("Applying your changes…"):
