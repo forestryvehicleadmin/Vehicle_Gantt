@@ -487,7 +487,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             st.subheader("3. Delete Entry")
 
             # Format function for user-friendly labels
-            def format_func(x):
+            def format_func_d(x):
                 if x is None:
                     return "Select..."
                 row = df.loc[df["Unique ID"] == x].iloc[0]
@@ -497,7 +497,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             delete_id = st.selectbox(
                 "Select entry to delete:",
                 options=[None] + df["Unique ID"].tolist(),
-                format_func=format_func,
+                format_func=format_func_d,
             )
 
             # Confirm checkbox
