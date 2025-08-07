@@ -503,10 +503,11 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             confirm_delete = st.checkbox("Confirm deletion of selected entry")
 
             st.markdown("---")
-            st.subheader("4. Bulk Delete by Date Range")
-            start_dt = st.date_input("Start Date for bulk delete:", value=None)
-            end_dt = st.date_input("End Date for bulk delete:", value=None)
-            confirm_bulk = st.checkbox("Confirm bulk deletion")
+            with st.expander("Bulk Delete"):
+                st.subheader("4. Bulk Delete by Date Range")
+                start_dt = st.date_input("Start Date for bulk delete:", value=None)
+                end_dt = st.date_input("End Date for bulk delete:", value=None)
+                confirm_bulk = st.checkbox("Confirm bulk deletion")
 
             # FINAL SUBMIT
             submitted = st.form_submit_button("Submit Changes")
