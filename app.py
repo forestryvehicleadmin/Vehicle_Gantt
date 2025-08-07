@@ -177,7 +177,7 @@ show_legend = st.checkbox("Show Legend", value=False)
 
 #@st.cache_data(show_spinner="Generating Gantt chart...")
 def generate_gantt_chart(df, view_mode, show_legend):
-    time.sleep(1)
+    time.sleep(3.5)
     df = df.copy()
     today = datetime.today()
     start_range = today - timedelta(weeks=2)
