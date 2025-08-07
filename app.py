@@ -440,33 +440,38 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     (lambda row: f"{row['Vehicle #']}, {row['Assigned to']}, ({row['Checkout Date'].date()}→{row['Return Date'].date()})")(
                         df.loc[df["Unique ID"] == x].iloc[0]
                     )
-                ))
+                )
 
+            )
             edits = {}
             if selected is not None:
                 row = df[df["Unique ID"] == selected].iloc[0]
 
                 st.write(row)
 
-                # Status
-                edits["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"],
-                                               index=["Confirmed", "Reserved"].index(row["Status"]),
-                                               key=f"edit_status_{selected}")
-
-                # Authorized Drivers
-                edits["Authorized Drivers"] = st.multiselect(
-                    "Authorized Drivers:", drivers_list,
-                    default=(row["Authorized Drivers"] or "").split(", "),
-                    key=f"edit_auth_drivers_{selected}"
-                )
-
-                # All other fields
-                skip_cols = ["Unique ID", "Assigned to", "Type", "Vehicle #", "Status", "Authorized Drivers"]
-                for col in [c for c in df.columns if c not in skip_cols]:
-                    widget_key = f"edit_{col}_{selected}"
+                for col in df.columns:
                     current_val = row[col]
+                    widget_key = f"edit_{col}_{selected}"
 
-                    if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    if col == "Assigned to":
+                        edits[col] = st.selectbox(col + ":", assigned_to_list,
+                                                  index=assigned_to_list.index(current_val),
+                                                  key=widget_key)
+                    elif col == "Type":
+                        edits[col] = st.selectbox(col + ":", type_list,
+                                                  index=type_list.index(current_val),
+                                                  key=widget_key)
+                    elif col == "Status":
+                        edits[col] = st.selectbox(col + ":", ["Confirmed", "Reserved"],
+                                                  index=["Confirmed", "Reserved"].index(current_val),
+                                                  key=widget_key)
+                    elif col == "Authorized Drivers":
+                        edits[col] = st.multiselect(
+                            col + ":", drivers_list,
+                            default=(current_val or "").split(", "),
+                            key=widget_key
+                        )
+                    elif pd.api.types.is_datetime64_any_dtype(df[col]):
                         d = st.date_input(col + ":",
                                           current_val.date() if not pd.isnull(current_val) else datetime.today(),
                                           key=widget_key)
@@ -479,7 +484,6 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                                                      key=widget_key)
                     else:
                         edits[col] = st.text_input(col + ":", value=current_val or "", key=widget_key)
-
 
             st.markdown("---")
             st.subheader("3. Delete Entry")
@@ -577,18 +581,12 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     df.loc[len(df)] = new_row
                     st.success("New entry added.")
                 # 2. Edit
-                if selected is not None:
-                    if selected and submitted:
-                        row_idx = df[df["Unique ID"] == selected].index
-                        if not row_idx.empty:
-                            idx = row_idx[0]
-                            for k, v in edits.items():
-                                if k != "Unique ID":
-                                    df.at[idx, k] = ", ".join(v) if k == "Authorized Drivers" else v
-                            st.success("Entry edited successfully.")
-                        else:
-                            st.error("Selected entry not found.")
-
+                if submitted:
+                    if selected is not None:
+                        for k, v in edits.items():
+                            if k != "Unique ID":
+                                df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
+                        st.success("Entry edited successfully.")
                 # 3. Single delete
                 if delete_id is not None and confirm_delete:
                     df.drop(index=delete_id, inplace=True)
