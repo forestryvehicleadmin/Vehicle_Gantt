@@ -482,7 +482,6 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     else:
                         edits[col] = st.text_input(col + ":", value=current_val or "", key=widget_key)
 
-
             st.markdown("---")
             st.subheader("3. Delete Entry")
 
