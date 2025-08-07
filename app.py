@@ -567,9 +567,6 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 with st.spinner("Pushing inline edits to GitHub..."):
                     push_changes_to_github()
 
-                # Optionally trigger a rerun to refresh everything
-                st.rerun()
-
         # AFTER form submit: process all pending actions
         if submitted:
             with st.spinner("Applying your changes…"):
