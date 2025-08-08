@@ -606,7 +606,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     df.loc[len(df)] = new_row
                     st.success("New entry added.")
                 # 2. Edit
-                if selected_id is not None:
+                if selected_id is not None and edited_row is not None:
                     for key, value in edited_row.items():
                         if key == "Authorized Drivers":  # Handle multi-select as a comma-separated string
                             value = ", ".join(value)
