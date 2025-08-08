@@ -151,7 +151,7 @@ view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
 try:
     df = pd.read_csv(
         FILE_PATH,
-        encoding="utf-8",
+        encoding="ISO-8859-1",
         parse_dates=["Checkout Date", "Return Date"]
     )
     df["Checkout Date"] = df["Checkout Date"].dt.normalize()
