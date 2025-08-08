@@ -154,10 +154,8 @@ view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"], index=0)
 # Load the data
 try:
     df = pd.read_excel(file_path, engine="openpyxl")
-    # Force to timezone‐naive datetime at 00:00
-    df['Checkout Date'] = pd.to_datetime(df['Checkout Date']).dt.normalize().dt.tz_localize(None)
-    df['Return Date']   = pd.to_datetime(df['Return Date']).dt.normalize().dt.tz_localize(None)
-
+    df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
+    df['Return Date'] = pd.to_datetime(df['Return Date'])
     df["Unique ID"] = df.index  # Add a unique identifier for each row
     df['Notes'] = df['Notes'].astype(str)
 
@@ -166,6 +164,7 @@ try:
 except Exception as e:
     st.error(f"Error loading Excel file: {e}")
     st.stop()
+
 # Full-screen Gantt chart
 #st.title("Interactive Vehicle Assignment Gantt Chart")
 st.markdown("###")
@@ -504,11 +503,10 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             confirm_delete = st.checkbox("Confirm deletion of selected entry")
 
             st.markdown("---")
-            with st.expander("Bulk Delete"):
-                st.subheader("4. Bulk Delete by Date Range")
-                start_dt = st.date_input("Start Date for bulk delete:", value=None)
-                end_dt = st.date_input("End Date for bulk delete:", value=None)
-                confirm_bulk = st.checkbox("Confirm bulk deletion")
+            st.subheader("4. Bulk Delete by Date Range")
+            start_dt = st.date_input("Start Date for bulk delete:", value=None)
+            end_dt = st.date_input("End Date for bulk delete:", value=None)
+            confirm_bulk = st.checkbox("Confirm bulk deletion")
 
             # FINAL SUBMIT
             submitted = st.form_submit_button("Submit Changes")
@@ -598,11 +596,6 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                 # REASSIGN UNIQUE ID & SORT
                 df.reset_index(drop=True, inplace=True)
                 df["Unique ID"] = df.index
-
-                # --- NEW: normalize date columns to midnight to prevent day‐offsets ---
-                df['Checkout Date'] = pd.to_datetime(df['Checkout Date']).dt.normalize()
-                df['Return Date'] = pd.to_datetime(df['Return Date']).dt.normalize()
-
 
                 # 5. WRITE ONCE
                 df.to_excel(file_path, index=False, engine="openpyxl")
