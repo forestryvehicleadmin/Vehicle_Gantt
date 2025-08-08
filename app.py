@@ -483,11 +483,25 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     else:
                         edits[col] = st.text_input(col + ":", value=current_val or "", key=widget_key)
 
-                    submitted = st.form_submit_button("Submit Changes")
 
             st.markdown("---")
             st.subheader("3. Delete Entry")
-            delete_id = st.selectbox("Select entry to delete:", options=[None]+df["Unique ID"].tolist())
+
+            # Format function for user-friendly labels
+            def format_func(x):
+                if x is None:
+                    return "Select..."
+                row = df.loc[df["Unique ID"] == x].iloc[0]
+                return f"{row['Vehicle #']}, {row['Assigned to']}, ({row['Checkout Date'].date()}→{row['Return Date'].date()})"
+
+            # Selectbox with formatted labels
+            delete_id = st.selectbox(
+                "Select entry to delete:",
+                options=[None] + df["Unique ID"].tolist(),
+                format_func=format_func,
+            )
+
+            # Confirm checkbox
             confirm_delete = st.checkbox("Confirm deletion of selected entry")
 
             st.markdown("---")
