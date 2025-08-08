@@ -160,7 +160,8 @@ try:
     df['Notes'] = df['Notes'].astype(str)
 
     # Sort the DataFrame by the 'Type' column (ascending order)
-    df = df.sort_values(by="Type", ascending=True)
+    df = df.sort_values(by="Type", ascending=True).reset_index(drop=True)
+    df["Unique ID"] = df.index
 except Exception as e:
     st.error(f"Error loading Excel file: {e}")
     st.stop()
