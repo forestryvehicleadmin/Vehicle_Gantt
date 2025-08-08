@@ -577,12 +577,11 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     df.loc[len(df)] = new_row
                     st.success("New entry added.")
                 # 2. Edit
-                if submitted:
-                    if selected is not None:
-                        for k, v in edits.items():
-                            if k != "Unique ID":
-                                df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
-                        st.success("Entry edited successfully.")
+                if selected is not None:
+                    for k, v in edits.items():
+                        if k != "Unique ID":
+                            df.at[selected, k] = ", ".join(v) if k == "Authorized Drivers" else v
+                    st.success("Entry edited successfully.")
                 # 3. Single delete
                 if delete_id is not None and confirm_delete:
                     df.drop(index=delete_id, inplace=True)
