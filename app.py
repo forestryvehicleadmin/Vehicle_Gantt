@@ -440,32 +440,37 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
             )
             edits = {}
             if selected is not None:
-                st.write(df.loc[selected])
+                row = df[df["Unique ID"] == selected].iloc[0]  # get the row matching Unique ID
+
+                st.write(row)  # show row details
+
                 for col in df.columns:
+                    current_val = row[col]
                     if col == "Assigned to":
                         edits[col] = st.selectbox(col + ":", assigned_to_list,
-                                                 index=assigned_to_list.index(df.at[selected,col]))
+                                                  index=assigned_to_list.index(current_val))
                     elif col == "Type":
                         edits[col] = st.selectbox(col + ":", type_list,
-                                                 index=type_list.index(df.at[selected,col]))
+                                                  index=type_list.index(current_val))
                     elif col == "Status":
-                        edits[col] = st.selectbox(col + ":", ["Confirmed","Reserved"],
-                                                 index=["Confirmed","Reserved"].index(df.at[selected,col]))
+                        edits[col] = st.selectbox(col + ":", ["Confirmed", "Reserved"],
+                                                  index=["Confirmed", "Reserved"].index(current_val))
                     elif col == "Authorized Drivers":
                         edits[col] = st.multiselect(
                             col + ":", drivers_list,
-                            default=(df.at[selected,col] or "").split(", ")
+                            default=(current_val or "").split(", ")
                         )
                     elif pd.api.types.is_datetime64_any_dtype(df[col]):
-                        d = st.date_input(col + ":", df.at[selected,col].date())
+                        d = st.date_input(col + ":",
+                                          current_val.date() if not pd.isnull(current_val) else datetime.today())
                         edits[col] = datetime.combine(
                             d,
-                            datetime.max.time() if col.lower()=="return date" else datetime.min.time()
+                            datetime.max.time() if col.lower() == "return date" else datetime.min.time()
                         )
                     elif pd.api.types.is_numeric_dtype(df[col]):
-                        edits[col] = st.number_input(col + ":", df.at[selected,col])
+                        edits[col] = st.number_input(col + ":", value=current_val if not pd.isnull(current_val) else 0)
                     else:
-                        edits[col] = st.text_input(col + ":", df.at[selected,col] or "")
+                        edits[col] = st.text_input(col + ":", value=current_val or "")
 
             st.markdown("---")
             st.subheader("3. Delete Entry")
@@ -538,7 +543,7 @@ with st.expander("🔧 Manage Entries (VEM use only)"):
                     push_changes_to_github()
 
                 # Optionally trigger a rerun to refresh everything
-                st.experimental_rerun()
+                st.rerun()
 
         # AFTER form submit: process all pending actions
         if submitted:
