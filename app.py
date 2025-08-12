@@ -220,7 +220,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         return fig
 
     df = _df.copy()
-    today = datetime.today()
+    today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Define date ranges for the chart view
     start_range = today - timedelta(weeks=2)
@@ -289,17 +289,6 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     # Add a vertical line for today's date
     today_label = today + pd.Timedelta(hours=12)
     fig.add_vline(x=today_label, line_width=2, line_dash="dash", line_color="red")
-
-    # Add an annotation for the "Today" line
-    fig.add_annotation(
-        x=today,
-        y=1,
-        yref="paper",
-        showarrow=False,
-        text="Today",
-        bgcolor="red",
-        font=dict(color="white")
-    )
 
     current_date = start_range
     while current_date <= week_range:
