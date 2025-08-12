@@ -372,9 +372,86 @@ def display_management_interface(df):
             st.session_state.edited_df = df.copy()
 
         # --- UI TABS for better organization ---
-        tab1, tab2, tab3 = st.tabs(["📝 Edit Entries", "➕ Create New Entry", "🗑️ Delete Entries"])
+        tab1, tab2, tab3 = st.tabs(["➕ Create New Entry","🗑️ Delete Entries" , "📝 Edit Entries"])
 
         with tab1:
+            st.subheader("Create a Single New Entry")
+            with st.form("new_entry_form", clear_on_submit=True):
+                new_entry = {}
+                new_entry["Type"] = st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH),
+                                                 index=None,
+                                                 key="new_type")
+                new_entry["Assigned to"] = st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH),
+                                                        index=None,
+                                                        key="new_assigned")
+                new_entry["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"], key="new_status")
+                new_entry["Checkout Date"] = st.date_input("Checkout Date:", value=datetime.today(), key="new_checkout")
+                new_entry["Return Date"] = st.date_input("Return Date:", value=datetime.today() + timedelta(days=1),
+                                                         key="new_return")
+
+                # Auto-populate vehicle number from type
+                try:
+                    new_entry["Vehicle #"] = int(new_entry["Type"].split("-")[0].strip()) if new_entry["Type"] else 0
+                except:
+                    new_entry["Vehicle #"] = 0
+
+                new_entry["Authorized Drivers"] = st.multiselect("Authorized Drivers:",
+                                                                 options=load_lookup_list(DRIVERS_LIST_PATH),
+                                                                 key="new_drivers")
+                new_entry["Notes"] = st.text_area("Notes:", key="new_notes")
+
+                submitted = st.form_submit_button("Add New Entry and Push")
+                if submitted:
+                    new_entry_df = pd.DataFrame([new_entry])
+
+                    # Ensure consistent datetime format
+                    new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
+                    new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
+
+                    # Append to the dataframe in session state
+                    updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
+                    updated_df["Unique ID"] = updated_df.index  # Reset IDs
+
+                    # --- FIX: Save the updated dataframe to the excel file before pushing ---
+                    updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+
+                    commit_message = f"Added new entry via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+                    with st.spinner("Adding new entry and pushing to GitHub..."):
+                        push_changes_to_github(commit_message)
+
+                    st.success("New entry added and pushed to GitHub!")
+                    st.cache_data.clear()
+                    st.rerun()
+
+
+        with tab2:
+            st.subheader("Bulk Delete Entries by Date Range")
+            st.warning("This action is permanent after you save and push.", icon="⚠️")
+
+            with st.form("bulk_delete_form"):
+                start_dt = st.date_input("Delete entries with a 'Return Date' ON or BEFORE:")
+                confirm_delete = st.checkbox("Yes, I want to delete these entries.")
+
+                delete_submitted = st.form_submit_button("Delete Entries")
+                if delete_submitted:
+                    if confirm_delete and start_dt:
+                        start_ts = pd.to_datetime(start_dt)
+
+                        # Filter out the rows to be deleted
+                        rows_before = len(st.session_state.edited_df)
+                        st.session_state.edited_df = st.session_state.edited_df[
+                            st.session_state.edited_df['Return Date'] > start_ts].copy()
+                        rows_after = len(st.session_state.edited_df)
+
+                        st.success(
+                            f"{rows_before - rows_after} entries marked for deletion. Go to the 'Edit Entries' tab and click 'Save and Push' to finalize.")
+                        st.rerun()
+                    else:
+                        st.error("Please confirm the deletion by checking the box.")
+
+
+        with tab3:
             st.subheader("Filter and Edit Entries Inline")
 
             # --- NEW: Filtering controls ---
@@ -445,77 +522,6 @@ def display_management_interface(df):
                     st.session_state.edited_df = edited_df.copy()
                     st.rerun()
 
-        with tab2:
-            st.subheader("Create a Single New Entry")
-            with st.form("new_entry_form", clear_on_submit=True):
-                new_entry = {}
-                new_entry["Type"] = st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH), index=None,
-                                                 key="new_type")
-                new_entry["Assigned to"] = st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH), index=None,
-                                                        key="new_assigned")
-                new_entry["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"], key="new_status")
-                new_entry["Checkout Date"] = st.date_input("Checkout Date:", value=datetime.today(), key="new_checkout")
-                new_entry["Return Date"] = st.date_input("Return Date:", value=datetime.today() + timedelta(days=1),
-                                                         key="new_return")
-
-                # Auto-populate vehicle number from type
-                try:
-                    new_entry["Vehicle #"] = int(new_entry["Type"].split("-")[0].strip()) if new_entry["Type"] else 0
-                except:
-                    new_entry["Vehicle #"] = 0
-
-                new_entry["Authorized Drivers"] = st.multiselect("Authorized Drivers:", options=load_lookup_list(DRIVERS_LIST_PATH),
-                                                                key="new_drivers")
-                new_entry["Notes"] = st.text_area("Notes:", key="new_notes")
-
-                submitted = st.form_submit_button("Add New Entry and Push")
-                if submitted:
-                    new_entry_df = pd.DataFrame([new_entry])
-
-                    # Ensure consistent datetime format
-                    new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
-                    new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
-
-                    # Append to the dataframe in session state
-                    updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
-                    updated_df["Unique ID"] = updated_df.index  # Reset IDs
-
-                    # --- FIX: Save the updated dataframe to the excel file before pushing ---
-                    updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
-
-                    commit_message = f"Added new entry via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-
-                    with st.spinner("Adding new entry and pushing to GitHub..."):
-                        push_changes_to_github(commit_message)
-
-                    st.success("New entry added and pushed to GitHub!")
-                    st.cache_data.clear()
-                    st.rerun()
-
-        with tab3:
-            st.subheader("Bulk Delete Entries by Date Range")
-            st.warning("This action is permanent after you save and push.", icon="⚠️")
-
-            with st.form("bulk_delete_form"):
-                start_dt = st.date_input("Delete entries with a 'Return Date' ON or BEFORE:")
-                confirm_delete = st.checkbox("Yes, I want to delete these entries.")
-
-                delete_submitted = st.form_submit_button("Delete Entries")
-                if delete_submitted:
-                    if confirm_delete and start_dt:
-                        start_ts = pd.to_datetime(start_dt)
-
-                        # Filter out the rows to be deleted
-                        rows_before = len(st.session_state.edited_df)
-                        st.session_state.edited_df = st.session_state.edited_df[
-                            st.session_state.edited_df['Return Date'] > start_ts].copy()
-                        rows_after = len(st.session_state.edited_df)
-
-                        st.success(
-                            f"{rows_before - rows_after} entries marked for deletion. Go to the 'Edit Entries' tab and click 'Save and Push' to finalize.")
-                        st.rerun()
-                    else:
-                        st.error("Please confirm the deletion by checking the box.")
 
         return st.session_state.edited_df
 
