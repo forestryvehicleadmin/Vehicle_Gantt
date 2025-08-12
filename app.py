@@ -363,7 +363,7 @@ def display_management_interface(df):
             st.subheader("Create a Single New Entry")
             with st.form("new_entry_form", clear_on_submit=True):
                 new_entry = {}
-                new_entry["Type"] = st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH),
+                new_entry["Type"] = st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH), index=None,
                                                  key="new_type")
                 new_entry["Assigned to"] = st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH),
                                                         key="new_assigned")
