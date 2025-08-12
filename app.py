@@ -533,35 +533,36 @@ def display_management_interface(df):
         with tab3:
             st.subheader("Filter and Edit Entries Inline")
 
-            # --- NEW: Filtering controls ---
-            type_options = ["All"] + sorted(st.session_state.edited_df['Type'].unique())
-            assigned_options = ["All"] + sorted(st.session_state.edited_df['Assigned to'].unique())
+            # --- FIX: Filtering and merging logic ---
+            # Create a copy to filter for display
+            df_to_display = st.session_state.edited_df.copy()
+
+            # --- Filtering controls ---
+            type_options = ["All"] + sorted(df_to_display['Type'].unique())
+            assigned_options = ["All"] + sorted(df_to_display['Assigned to'].unique())
             status_options = ["All", "Confirmed", "Reserved"]
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                filter_type = st.multiselect("Filter by Type", options=type_options, default="All")
+                filter_type = st.multiselect("Filter by Type", options=type_options, default=["All"])
             with col2:
-                filter_assigned = st.multiselect("Filter by Assigned to", options=assigned_options, default="All")
+                filter_assigned = st.multiselect("Filter by Assigned to", options=assigned_options, default=["All"])
             with col3:
                 filter_status = st.selectbox("Filter by Status", options=status_options, index=0)
 
-            # Create a copy to filter for display
-            df_display = st.session_state.edited_df.copy()
-
-            # Apply filters
+            # Apply filters if 'All' is not selected
             if "All" not in filter_type:
-                df_display = df_display[df_display['Type'].isin(filter_type)]
+                df_to_display = df_to_display[df_to_display['Type'].isin(filter_type)]
             if "All" not in filter_assigned:
-                df_display = df_display[df_display['Assigned to'].isin(filter_assigned)]
+                df_to_display = df_to_display[df_to_display['Assigned to'].isin(filter_assigned)]
             if filter_status != "All":
-                df_display = df_display[df_display['Status'] == filter_status]
+                df_to_display = df_to_display[df_to_display['Status'] == filter_status]
 
-            st.info(f"Showing {len(df_display)} of {len(st.session_state.edited_df)} total entries.")
+            st.info(f"Showing {len(df_to_display)} of {len(st.session_state.edited_df)} total entries.")
 
             # Use the powerful st.data_editor on the filtered dataframe
-            edited_df = st.data_editor(
-                df_display,
+            edited_filtered_df = st.data_editor(
+                df_to_display,
                 num_rows="dynamic",
                 use_container_width=True,
                 column_config={
@@ -575,19 +576,42 @@ def display_management_interface(df):
                                                                required=True),
                     "Checkout Date": st.column_config.DateColumn("Checkout", required=True),
                     "Return Date": st.column_config.DateColumn("Return", required=True),
-                    "Authorized Drivers": st.column_config.SelectboxColumn("Authorized Drivers",options=load_lookup_list(DRIVERS_LIST_PATH),required=True)
                 },
                 key="data_editor"
             )
 
             if st.button("💾 Save and Push Changes"):
                 with st.spinner("Saving changes and pushing to GitHub..."):
-                    # Re-assign unique IDs before saving
-                    edited_df.reset_index(drop=True, inplace=True)
-                    edited_df["Unique ID"] = edited_df.index
 
-                    # Save to Excel file
-                    edited_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+                    # Create a copy of the original full dataframe to merge changes into
+                    updated_full_df = st.session_state.edited_df.copy()
+
+                    # Update the original dataframe with the edited rows from the filtered view
+                    # This correctly handles modifications to existing rows
+                    updated_full_df.set_index('Unique ID', inplace=True)
+                    edited_filtered_df.set_index('Unique ID', inplace=True)
+                    updated_full_df.update(edited_filtered_df)
+                    updated_full_df.reset_index(inplace=True)
+
+                    # Identify and handle deleted rows
+                    original_ids = set(df_to_display['Unique ID'])
+                    edited_ids = set(edited_filtered_df.index)
+                    deleted_ids = original_ids - edited_ids
+                    if deleted_ids:
+                        updated_full_df = updated_full_df[~updated_full_df['Unique ID'].isin(deleted_ids)]
+
+                    # Identify and handle added rows (they won't have an index in edited_filtered_df)
+                    added_rows = edited_filtered_df[edited_filtered_df.index.isna()]
+                    if not added_rows.empty:
+                        added_rows.reset_index(drop=True, inplace=True)
+                        updated_full_df = pd.concat([updated_full_df, added_rows], ignore_index=True)
+
+                    # Final cleanup: sort and re-assign all unique IDs to ensure integrity
+                    updated_full_df = updated_full_df.sort_values(by="Type").reset_index(drop=True)
+                    updated_full_df["Unique ID"] = updated_full_df.index
+
+                    # Save the fully merged and cleaned dataframe to Excel
+                    updated_full_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
 
                     # Push to Git
                     commit_message = f"Data update from Streamlit app by user at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -596,8 +620,8 @@ def display_management_interface(df):
                     # Clear caches to force a reload of data from the repo
                     st.cache_data.clear()
 
-                    # Update session state and rerun
-                    st.session_state.edited_df = edited_df.copy()
+                    # Update session state with the newly saved data and rerun
+                    st.session_state.edited_df = updated_full_df.copy()
                     st.rerun()
 
         with tab4:
