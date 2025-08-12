@@ -376,13 +376,37 @@ def display_management_interface(df):
 
         with tab1:
             st.subheader("Filter and Edit Entries Inline")
-            st.info(
-                "You can directly edit, add, or delete rows in the table below. Click 'Save and Push Changes' when you're done.")
 
-            # Use the powerful st.data_editor
+            # --- NEW: Filtering controls ---
+            type_options = ["All"] + sorted(st.session_state.edited_df['Type'].unique())
+            assigned_options = ["All"] + sorted(st.session_state.edited_df['Assigned to'].unique())
+            status_options = ["All", "Confirmed", "Reserved"]
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                filter_type = st.multiselect("Filter by Type", options=type_options, default="All")
+            with col2:
+                filter_assigned = st.multiselect("Filter by Assigned to", options=assigned_options, default="All")
+            with col3:
+                filter_status = st.selectbox("Filter by Status", options=status_options, index=0)
+
+            # Create a copy to filter for display
+            df_display = st.session_state.edited_df.copy()
+
+            # Apply filters
+            if "All" not in filter_type:
+                df_display = df_display[df_display['Type'].isin(filter_type)]
+            if "All" not in filter_assigned:
+                df_display = df_display[df_display['Assigned to'].isin(filter_assigned)]
+            if filter_status != "All":
+                df_display = df_display[df_display['Status'] == filter_status]
+
+            st.info(f"Showing {len(df_display)} of {len(st.session_state.edited_df)} total entries.")
+
+            # Use the powerful st.data_editor on the filtered dataframe
             edited_df = st.data_editor(
-                st.session_state.edited_df,
-                num_rows="dynamic",  # Allows adding and deleting rows
+                df_display,
+                num_rows="dynamic",
                 use_container_width=True,
                 column_config={
                     "Unique ID": st.column_config.NumberColumn(disabled=True),
@@ -395,7 +419,8 @@ def display_management_interface(df):
                                                                required=True),
                     "Checkout Date": st.column_config.DateColumn("Checkout", required=True),
                     "Return Date": st.column_config.DateColumn("Return", required=True),
-                    "Authorized Drivers": st.column_config.SelectboxColumn("Authorized Drivers",options=load_lookup_list(DRIVERS_LIST_PATH),required=True)
+                    "Authorized Drivers": st.column_config.TextColumn("Authorized Drivers")
+                    # Keep as text for simplicity in data_editor
                 },
                 key="data_editor"
             )
