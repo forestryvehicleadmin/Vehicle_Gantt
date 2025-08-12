@@ -281,7 +281,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         fig.add_trace(
             go.Bar(
                 y=[row['Type']],
-                x='Return Date',
+                x=[row['Return Date']],
                 base=[row['Checkout Date']],
                 orientation='h',
                 marker=dict(
