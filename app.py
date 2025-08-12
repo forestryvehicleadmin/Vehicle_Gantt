@@ -368,12 +368,13 @@ def generate_gantt_chart(_df, view_mode, show_legend):
 
     return fig
 
-with st.expander('Vehicle list'):
-    st.subheader("Vehicle Type List")
-    type_list_content = load_type_list("type_list.txt")
+def vehicles():
+    with st.expander('Vehicle list'):
+        st.subheader("Vehicle Type List")
+        type_list_content = load_type_list("type_list.txt")
 
-    # Use st.markdown() to display line-separated vehicle types
-    st.markdown(f"```\n{type_list_content}\n```")
+        # Use st.markdown() to display line-separated vehicle types
+        st.markdown(f"```\n{type_list_content}\n```")
 
 
 def display_management_interface(df):
@@ -672,6 +673,7 @@ def main():
     gantt_fig = generate_gantt_chart(df, view_mode, show_legend)
     st.plotly_chart(gantt_fig, use_container_width=True)
 
+    vehicles()
     # Display the data table in an expander
     with st.expander("View Full Data Table"):
         st.dataframe(df)
