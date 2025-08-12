@@ -396,7 +396,7 @@ def display_management_interface(df):
 
                     st.success(
                         "Entry added to the table in the 'Edit Entries' tab. Remember to 'Save and Push' to make it permanent.")
-                    st.rerun()
+
 
         with tab3:
             st.subheader("Bulk Delete Entries by Date Range")
