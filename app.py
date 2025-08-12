@@ -233,7 +233,11 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         else [start_range, end_range]
     )
 
-    df["Bar Label"] = df["Vehicle #"].astype(str) + " - " + df["Assigned to"]
+    # Conditionally create the bar label. If status is 'Reserved', the label is empty.
+    df["Bar Label"] = df.apply(
+        lambda row: f"{row['Vehicle #']} - {row['Assigned to']}" if row['Status'] != 'Reserved' else "",
+        axis=1
+    )
 
     custom_colors = [
         "#353850", "#3A565A", "#3E654C", "#557042", "#7C7246", "#884C49",
