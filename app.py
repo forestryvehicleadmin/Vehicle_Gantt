@@ -235,10 +235,15 @@ def generate_gantt_chart(_df, view_mode, show_legend):
 
     df["Bar Label"] = df["Vehicle #"].astype(str) + " - " + df["Assigned to"]
 
-    # Generate a consistent color map for assignees
+    custom_colors = [
+        "#353850", "#3A565A", "#3E654C", "#557042", "#7C7246", "#884C49",
+        "#944C7F", "#7B4FA1", "#503538", "#5A3A56", "#4C3E65", "#425570",
+        "#467C72", "#49884C", "#80944C", "#A1794F", "#395035", "#575A3A",
+        "#654B3E", "#704255", "#72467C", "#4C4988", "#4C8094", "#4FA179"
+    ]
+
     assigned_to_names = df["Assigned to"].unique()
-    color_map = {name: px.colors.qualitative.Alphabet[i % len(px.colors.qualitative.Alphabet)] for i, name in
-                 enumerate(assigned_to_names)}
+    color_map = {name: custom_colors[i % len(custom_colors)] for i, name in enumerate(assigned_to_names)}
 
     fig = px.timeline(
         df,
@@ -262,7 +267,22 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     )
 
     unique_types = df['Type'].unique()
-    fig.update_yaxes(categoryorder="array", categoryarray=unique_types, title=None)
+    fig.update_yaxes(categoryorder="array", categoryarray=unique_types)
+
+    for _, row in df.iterrows():
+        if row['Status'] == 'Reserved':
+            fig.add_shape(
+                type="rect",
+                x0=row['Checkout Date'],
+                x1=row['Return Date'],
+                y0=unique_types.tolist().index(row['Type']) - 0.4,
+                y1=unique_types.tolist().index(row['Type']) + 0.4,
+                xref="x",
+                yref="y",
+                fillcolor="rgba(255,0,0,0.1)",
+                line=dict(width=0),
+                layer="below"
+            )
 
     # Add a vertical line for today's date
     fig.add_vline(x=today, line_width=2, line_dash="dash", line_color="red")
@@ -272,16 +292,50 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         x=today,
         y=1,
         yref="paper",
-        showarrow=False,
-        text="Today",
-        bgcolor="red",
-        font=dict(color="white")
+        fillcolor="rgba(255, 0, 0, 0.1)",
+        line=dict(color="red", width=0),
+        layer="below"
     )
 
-    # Add background gridlines for clarity
-    for idx, _ in enumerate(unique_types):
-        fig.add_shape(type="line", x0=start_range, y0=idx - 0.5, x1=week_range, y1=idx - 0.5, xref="x", yref="y",
-                      line=dict(color="lightgray", width=1, dash="dot"))
+    current_date = start_range
+    while current_date <= week_range:
+        current_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        if current_date.weekday() == 0:
+            fig.add_shape(
+                type="line",
+                x0=current_date,
+                y0=0,
+                x1=current_date,
+                y1=1,
+                xref="x",
+                yref="paper",
+                line=dict(color="gray", width=1.5, dash="solid"),
+                layer="below",
+            )
+        fig.add_shape(
+            type="line",
+            x0=current_date,
+            y0=0,
+            x1=current_date,
+            y1=1,
+            xref="x",
+            yref="paper",
+            line=dict(color="lightgray", width=0.5, dash="dot"),
+            layer="below",
+        )
+        current_date += timedelta(days=1)
+
+    for idx, label in enumerate(unique_types):
+        fig.add_shape(
+            type="line",
+            x0=start_range,
+            y0=idx - 0.5,
+            x1=week_range,
+            y1=idx - 0.5,
+            xref="x",
+            yref="y",
+            line=dict(color="lightgray", width=1, dash="dot"),
+        )
 
     fig.update_layout(
         height=800,
@@ -289,6 +343,16 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         margin=dict(l=10, r=10, t=50, b=20),
         showlegend=show_legend,
         xaxis_range=xaxis_range
+    )
+
+    tick_dates = pd.date_range(start=start_range, end=end_range, freq="D")
+    tick_labels = [d.strftime("%a")[0] + "<br>" + d.strftime("%d/%m") for d in tick_dates]
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=tick_dates,
+        ticktext=tick_labels,
+        tickangle=0,
+        tickfont=dict(size=10),
     )
 
     return fig
