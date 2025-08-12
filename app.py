@@ -261,7 +261,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     # --- Chart Styling ---
     fig.update_traces(
         textposition="inside",
-        insidetextanchor="middle",
+        insidetextanchor="start",
         textfont=dict(size=12, color="white", family="Arial Black"),
         opacity=0.9
     )
