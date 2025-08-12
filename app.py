@@ -175,6 +175,14 @@ def load_vehicle_data(file_path):
         st.error(f"Error loading or processing Excel file: {e}")
         return pd.DataFrame()  # Return empty dataframe on error
 
+# Function to read contents of type_list.txt and display line by line
+def load_type_list(file_path):
+    try:
+        with open(file_path, "r") as file:
+            lines = file.readlines()  # Read each line into a list
+            return "\n".join(line.strip() for line in lines if line.strip())  # Join with new lines
+    except FileNotFoundError:
+        return "File not found."
 
 # --- 4. UI COMPONENTS ---
 def display_welcome_message():
@@ -360,6 +368,12 @@ def generate_gantt_chart(_df, view_mode, show_legend):
 
     return fig
 
+with st.sidebar:
+    st.subheader("Vehicle Type List")
+    type_list_content = load_type_list("type_list.txt")
+
+    # Use st.markdown() to display line-separated vehicle types
+    st.markdown(f"```\n{type_list_content}\n```")
 
 def display_management_interface(df):
     """Renders the password-protected management UI."""
