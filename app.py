@@ -426,9 +426,9 @@ def main():
 
     # --- Setup and Data Loading ---
     # Only setup git and clone if we are in a local/dev environment
-    if REPO_DIR.is_dir():
-        setup_ssh_and_git()
-        clone_or_pull_repo()
+    #if REPO_DIR.is_dir():
+     #   setup_ssh_and_git()
+      #  clone_or_pull_repo()
 
     # Initialize data files if they don't exist.
     initialize_data_files_if_needed()
