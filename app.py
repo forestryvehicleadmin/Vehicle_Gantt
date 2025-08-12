@@ -288,7 +288,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
 
     # Add a vertical line for today's date
     today_label = today + pd.Timedelta(hours=12)
-    fig.add_vline(x=today_label, line_width=2, line_dash="dash", line_color="red")
+    fig.add_vline(x=today_label, line_width=2, line_dash="dash", line_color="red", layer="below")
 
     current_date = start_range
     while current_date <= week_range:
