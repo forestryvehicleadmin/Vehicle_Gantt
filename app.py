@@ -267,7 +267,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     )
 
     unique_types = df['Type'].unique()
-    fig.update_yaxes(categoryorder="array", categoryarray=unique_types)
+    fig.update_yaxes(categoryorder="array", categoryarray=unique_types, title=None)
 
     for _, row in df.iterrows():
         if row['Status'] == 'Reserved':
@@ -292,9 +292,10 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         x=today,
         y=1,
         yref="paper",
-        fillcolor="rgba(255, 0, 0, 0.1)",
-        line=dict(color="red", width=0),
-        layer="below"
+        showarrow=False,
+        text="Today",
+        bgcolor="red",
+        font=dict(color="white")
     )
 
     current_date = start_range
