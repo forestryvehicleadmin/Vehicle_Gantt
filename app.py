@@ -365,7 +365,7 @@ def display_management_interface(df):
                 new_entry = {}
                 new_entry["Type"] = st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH), index=None,
                                                  key="new_type")
-                new_entry["Assigned to"] = st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH),
+                new_entry["Assigned to"] = st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH), index=None,
                                                         key="new_assigned")
                 new_entry["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"], key="new_status")
                 new_entry["Checkout Date"] = st.date_input("Checkout Date:", value=datetime.today(), key="new_checkout")
