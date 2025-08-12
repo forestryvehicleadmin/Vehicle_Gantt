@@ -350,6 +350,10 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         tickangle=0,
         tickfont=dict(size=10),
     )
+    ylabs = [str(c)[:3] for c in df['Type']]
+    fig.update_yaxes(
+        ticktext=ylabs,
+    )
 
     return fig
 
