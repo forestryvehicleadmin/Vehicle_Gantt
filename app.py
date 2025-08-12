@@ -30,7 +30,7 @@ if REPO_DIR.is_dir():
     base_path = REPO_DIR
 else:
     # We are likely in a Streamlit Cloud environment where files are at the root.
-    base_path = Path("forestryvehicleadmin/vehicle_gantt/master")  # Use the current directory
+    base_path = Path(" ")  # Use the current directory
 
 EXCEL_FILE_PATH = base_path / "Vehicle_Checkout_List.xlsx"
 TYPE_LIST_PATH = base_path / "type_list.txt"
@@ -67,7 +67,7 @@ Host github.com
     subprocess.run(["git", "config", "--global", "user.name", "forestryvehicleadmin"], check=True)
     subprocess.run(["git", "config", "--global", "user.email", "forestryvehicleadmin@nau.edu"], check=True)
 
-'''
+
 def clone_or_pull_repo():
     """Clones the repo if it doesn't exist, otherwise pulls the latest changes."""
     # This function should only run if the 'repo' directory is the intended mode of operation.
@@ -85,7 +85,7 @@ def clone_or_pull_repo():
                        capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         st.error(f"Failed to pull changes. Git Error: {e.stderr}")
-        st.stop()'''
+        st.stop()
 
 
 def push_changes_to_github(commit_message):
@@ -426,9 +426,10 @@ def main():
 
     # --- Setup and Data Loading ---
     # Only setup git and clone if we are in a local/dev environment
-    #if REPO_DIR.is_dir():
-     #   setup_ssh_and_git()
-      #  clone_or_pull_repo()
+    if REPO_DIR.is_dir():
+        setup_ssh_and_git()
+        clone_or_pull_repo()
+
     # Initialize data files if they don't exist.
     initialize_data_files_if_needed()
 
