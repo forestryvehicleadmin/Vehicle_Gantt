@@ -357,24 +357,16 @@ def display_management_interface(df):
 
         with tab2:
             st.subheader("Create a Single New Entry")
-
-            # --- FIX: Use a callback for form submission ---
-            def add_entry_callback():
-                """
-                This function is called when the 'Add New Entry' button is clicked.
-                It reads values from session_state (populated by the form widgets)
-                and updates the dataframe in session_state.
-                """
-                # Construct the new entry from form values stored in session_state
-                new_entry = {
-                    "Type": st.session_state.new_type,
-                    "Assigned to": st.session_state.new_assigned,
-                    "Status": st.session_state.new_status,
-                    "Checkout Date": st.session_state.new_checkout,
-                    "Return Date": st.session_state.new_return,
-                    "Authorized Drivers": st.session_state.new_drivers,
-                    "Notes": st.session_state.new_notes
-                }
+            with st.form("new_entry_form", clear_on_submit=True):
+                new_entry = {}
+                new_entry["Type"] = st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH),
+                                                 key="new_type")
+                new_entry["Assigned to"] = st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH),
+                                                        key="new_assigned")
+                new_entry["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"], key="new_status")
+                new_entry["Checkout Date"] = st.date_input("Checkout Date:", value=datetime.today(), key="new_checkout")
+                new_entry["Return Date"] = st.date_input("Return Date:", value=datetime.today() + timedelta(days=1),
+                                                         key="new_return")
 
                 # Auto-populate vehicle number from type
                 try:
@@ -382,31 +374,29 @@ def display_management_interface(df):
                 except:
                     new_entry["Vehicle #"] = 0
 
-                new_entry_df = pd.DataFrame([new_entry])
+                new_entry["Authorized Drivers"] = st.text_input("Authorized Drivers (comma-separated):",
+                                                                key="new_drivers")
+                new_entry["Notes"] = st.text_area("Notes:", key="new_notes")
 
-                # Ensure consistent datetime format
-                new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
-                new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
+                submitted = st.form_submit_button("Add New Entry")
+                if submitted:
+                    new_entry_df = pd.DataFrame([new_entry])
 
-                # Append to the dataframe in session state
-                updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
-                updated_df["Unique ID"] = updated_df.index  # Reset IDs
-                st.session_state.edited_df = updated_df
+                    # --- FIX: Ensure consistent datetime format ---
+                    new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
+                    new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
 
-                st.success(
-                    "Entry added to the table in the 'Edit Entries' tab. Remember to 'Save and Push' to make it permanent.")
+                    # Append to the dataframe in session state
+                    updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
+                    updated_df["Unique ID"] = updated_df.index  # Reset IDs
+                    st.session_state.edited_df = updated_df
 
-            with st.form("new_entry_form"):
-                st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH), key="new_type")
-                st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH), key="new_assigned")
-                st.selectbox("Status:", ["Confirmed", "Reserved"], key="new_status")
-                st.date_input("Checkout Date:", value=datetime.today(), key="new_checkout")
-                st.date_input("Return Date:", value=datetime.today() + timedelta(days=1), key="new_return")
-                st.text_input("Authorized Drivers (comma-separated):", key="new_drivers")
-                st.text_area("Notes:", key="new_notes")
+                    commit_message = f"Data update from Streamlit app by user at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    push_changes_to_github(commit_message)
 
-                # The button now calls the callback function on click
-                st.form_submit_button("Add New Entry", on_click=add_entry_callback)
+                    st.success(
+                        "Entry added to the table in the 'Edit Entries' tab. Remember to 'Save and Push' to make it permanent.")
+                    st.rerun()
 
         with tab3:
             st.subheader("Bulk Delete Entries by Date Range")
