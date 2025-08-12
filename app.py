@@ -269,27 +269,11 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         insidetextanchor="start",
         textfont=dict(size=12, color="white", family="Arial Black"),
         opacity=0.9,
-        layer="above"
+
     )
 
     unique_types = df['Type'].unique()
     fig.update_yaxes(categoryorder="array", categoryarray=unique_types, title=None)
-
-    for _, row in df.iterrows():
-        if row['Status'] == 'Reserved':
-            fig.add_shape(
-                type="rect",
-                x0=row['Checkout Date'],
-                x1=row['Return Date'],
-                y0=unique_types.tolist().index(row['Type']) - 0.4,
-                y1=unique_types.tolist().index(row['Type']) + 0.4,
-                xref="x",
-                yref="y",
-                fillcolor="rgba(255,0,0,0.1)",
-                line=dict(width=0),
-                layer="below",
-
-            )
 
     # Add a vertical line for today's date
     today_label = today + pd.Timedelta(hours=12)
