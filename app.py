@@ -263,6 +263,10 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         pattern_shape="Status",
     )
 
+    # --- Force "Reserved" traces below "Confirmed" ---
+    # Sort fig.data so Reserved comes before Confirmed
+    fig.data = tuple(sorted(fig.data, key=lambda t: 0 if "Reserved" in t.name else 1))
+
     # --- Chart Styling ---
     fig.update_traces(
         textposition="inside",
