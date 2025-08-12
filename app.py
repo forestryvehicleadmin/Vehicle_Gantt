@@ -272,7 +272,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         insidetextanchor="start",
         textfont=dict(size=12, color="white", family="Arial Black"),
         opacity=0.9,
-        width=0.5  # Set a standard width for the main bars
+        width=1  # Set a standard width for the main bars
     )
 
     # --- Manually add RESERVED entries as separate, offset bars ---
