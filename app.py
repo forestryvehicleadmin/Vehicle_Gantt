@@ -352,6 +352,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     )
     ylabs = [str(c)[:3] for c in df['Type']]
     fig.update_yaxes(
+        tickmode="array",
         ticktext=ylabs,
     )
 
