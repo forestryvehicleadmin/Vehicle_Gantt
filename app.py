@@ -282,7 +282,6 @@ def generate_gantt_chart(_df, view_mode, show_legend):
                 fillcolor="rgba(255,0,0,0.1)",
                 line=dict(width=0),
                 layer="below",
-                row=row['Status'],
             )
 
     # Add a vertical line for today's date
