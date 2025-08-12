@@ -368,7 +368,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
 
     return fig
 
-with st.expander:
+with st.expander('Vehicle list'):
     st.subheader("Vehicle Type List")
     type_list_content = load_type_list("type_list.txt")
 
