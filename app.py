@@ -352,7 +352,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     )
 
     tick_dates = pd.date_range(start=start_range, end=week_range, freq="D") + pd.Timedelta(hours=12)
-    tick_labels = [d.strftime("%a")[0] + "<br>" + d.strftime("%d/%m") for d in tick_dates]
+    tick_labels = [d.strftime("%a")[0] + "<br>" + d.strftime("%m/%d") for d in tick_dates]
     fig.update_xaxes(
         tickmode="array",
         tickvals=tick_dates,
