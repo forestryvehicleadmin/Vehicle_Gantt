@@ -292,7 +292,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
 
     # Add an annotation for the "Today" line
     fig.add_annotation(
-        x=today,
+        x=today_label,
         y=1,
         yref="paper",
         showarrow=False,
