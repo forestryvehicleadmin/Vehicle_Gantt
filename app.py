@@ -348,6 +348,7 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         showlegend=show_legend,
         xaxis_range=xaxis_range,
         yaxis_fixedrange=True,
+        dragmode="pan",
     )
 
     tick_dates = pd.date_range(start=start_range, end=week_range, freq="D") + pd.Timedelta(hours=12)
