@@ -540,14 +540,11 @@ def display_management_interface(df):
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                filter_type = st.multiselect("Filter by Type", options=type_options, default=st.session_state.get("filter_type", ["All"]),
-                                             key="filter_type")
+                filter_type = st.multiselect("Filter by Type", options=type_options, default="All")
             with col2:
-                filter_assigned = st.multiselect("Filter by Assigned to", options=assigned_options, default=st.session_state.get("filter_assigned", ["All"]),
-                                                 key="filter_assigned")
+                filter_assigned = st.multiselect("Filter by Assigned to", options=assigned_options, default="All")
             with col3:
-                filter_status = st.selectbox("Filter by Status", options=status_options, index=status_options.index(st.session_state.get("filter_status", "All")),
-                                             key="filter_status")
+                filter_status = st.selectbox("Filter by Status", options=status_options, index=0)
 
             # Create a copy to filter for display
             df_display = st.session_state.edited_df.copy()
@@ -584,10 +581,6 @@ def display_management_interface(df):
             )
 
             if st.button("💾 Save and Push Changes"):
-                # 1️⃣ Reset filters first
-                st.session_state["filter_type"] = ["All"]
-                st.session_state["filter_assigned"] = ["All"]
-                st.session_state["filter_status"] = "All"
                 with st.spinner("Saving changes and pushing to GitHub..."):
                     # Re-assign unique IDs before saving
                     edited_df.reset_index(drop=True, inplace=True)
