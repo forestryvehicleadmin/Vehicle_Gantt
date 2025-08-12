@@ -371,7 +371,7 @@ def display_management_interface(df):
             st.session_state.edited_df = df.copy()
 
         # --- UI TABS for better organization ---
-        tab1, tab2, tab3 = st.tabs(["➕ Create New Entry","🗑️ Delete Entries" , "📝 Edit Entries"])
+        tab1, tab2, tab3, tab4 = st.tabs(["➕ Create New Entry","🗑️ Delete Entries" , "📝 Edit Entries", "👤 Manage Lists"])
 
         with tab1:
             st.subheader("Create a Single New Entry")
@@ -576,6 +576,45 @@ def display_management_interface(df):
                     st.session_state.edited_df = edited_df.copy()
                     st.rerun()
 
+        with tab4:
+            st.subheader("Manage Dropdown Lists")
+
+            def add_to_list_file(file_path, new_name):
+                if not new_name:
+                    st.warning("Please enter a name.")
+                    return
+
+                current_list = load_lookup_list(file_path)
+                if new_name.lower() in [name.lower() for name in current_list]:
+                    st.error(f"'{new_name}' already exists in the list.")
+                    return
+
+                with open(file_path, "a") as f:
+                    f.write(f"\n{new_name}")
+
+                commit_message = f"Added '{new_name}' to {file_path.name}"
+                with st.spinner(f"Adding '{new_name}' and pushing to GitHub..."):
+                    push_changes_to_github(commit_message)
+
+                st.success(f"'{new_name}' added successfully.")
+                st.cache_data.clear()
+                st.rerun()
+
+            with st.form("add_assigned_to_form"):
+                st.write("Add a new person to the **'Assigned to'** list:")
+                new_assigned_to = st.text_input("New Name:")
+                submitted_assigned = st.form_submit_button("Add to 'Assigned To' List")
+                if submitted_assigned:
+                    add_to_list_file(ASSIGNED_TO_LIST_PATH, new_assigned_to)
+
+            st.markdown("---")
+
+            with st.form("add_driver_form"):
+                st.write("Add a new person to the **'Authorized Drivers'** list:")
+                new_driver = st.text_input("New Driver Name:")
+                submitted_driver = st.form_submit_button("Add to 'Drivers' List")
+                if submitted_driver:
+                    add_to_list_file(DRIVERS_LIST_PATH, new_driver)
 
         return st.session_state.edited_df
 
