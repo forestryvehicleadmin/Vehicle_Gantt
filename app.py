@@ -255,7 +255,8 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         title="Vehicle Assignments",
         hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date", "Authorized Drivers",
                     "Notes"],
-        text="Bar Label"
+        text="Bar Label",
+        pattern_shape="Status",
     )
 
     # --- Chart Styling ---
