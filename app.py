@@ -109,7 +109,37 @@ def push_changes_to_github(commit_message):
 
 
 # --- 3. DATA LOADING & CACHING ---
-# Caching speeds up the app significantly by not re-reading files on every interaction.
+def initialize_data_files_if_needed():
+    """Checks for the main Excel file and creates it if it doesn't exist."""
+    if not EXCEL_FILE_PATH.exists():
+        st.warning("Data file not found in repository. Initializing a new one...")
+
+        # Define the schema for the new Excel file
+        columns = [
+            "Unique ID", "Type", "Vehicle #", "Assigned to", "Status",
+            "Checkout Date", "Return Date", "Authorized Drivers", "Notes"
+        ]
+        df = pd.DataFrame(columns=columns)
+
+        # Ensure date columns have the correct dtype, even when empty
+        df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
+        df['Return Date'] = pd.to_datetime(df['Return Date'])
+
+        # Create the Excel file and empty text files
+        df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+        TYPE_LIST_PATH.touch()
+        ASSIGNED_TO_LIST_PATH.touch()
+        DRIVERS_LIST_PATH.touch()
+
+        # Push the new files to the repo to initialize it
+        with st.spinner("Pushing initial data files to GitHub..."):
+            push_changes_to_github("Initialize data files")
+
+        st.success("Repository initialized successfully. The app will now reload.")
+        # Rerun the app to load the newly created files
+        st.rerun()
+
+
 @st.cache_data
 def load_lookup_list(file_path):
     """Loads a list from a text file."""
@@ -164,7 +194,8 @@ def display_welcome_message():
 def generate_gantt_chart(_df, view_mode, show_legend):
     """Generates the Plotly Gantt chart. Caching this is a major performance win."""
     if _df.empty:
-        return px.timeline(title="No data available to display.")
+        st.info("No vehicle assignments to display. Add new entries in the 'Manage Entries' section.")
+        return px.timeline(title="Vehicle Assignments")  # Return empty chart
 
     df = _df.copy()
     today = datetime.today()
@@ -242,7 +273,7 @@ def display_management_interface(df):
 
         st.success("Access Granted!")
 
-        # Use session state to track edits
+        # Use session state to track edits, initializing it from the main df
         if 'edited_df' not in st.session_state:
             st.session_state.edited_df = df.copy()
 
@@ -309,7 +340,7 @@ def display_management_interface(df):
 
                 # Auto-populate vehicle number from type
                 try:
-                    new_entry["Vehicle #"] = int(new_entry["Type"].split("-")[0].strip())
+                    new_entry["Vehicle #"] = int(new_entry["Type"].split("-")[0].strip()) if new_entry["Type"] else 0
                 except:
                     new_entry["Vehicle #"] = 0
 
@@ -346,7 +377,7 @@ def display_management_interface(df):
                         # Filter out the rows to be deleted
                         rows_before = len(st.session_state.edited_df)
                         st.session_state.edited_df = st.session_state.edited_df[
-                            st.session_state.edited_df['Return Date'] > start_ts]
+                            st.session_state.edited_df['Return Date'] > start_ts].copy()
                         rows_after = len(st.session_state.edited_df)
 
                         st.success(
@@ -364,12 +395,14 @@ def main():
     st.title("SoF Vehicle Assignments")
 
     # --- Setup and Data Loading ---
-    # These steps run once at the beginning
     setup_ssh_and_git()
     clone_or_pull_repo()
 
+    # NEW: Initialize data files if they don't exist in the repo.
+    initialize_data_files_if_needed()
+
     df = load_vehicle_data(EXCEL_FILE_PATH)
-    if df.empty:
+    if df.empty and not EXCEL_FILE_PATH.exists():
         st.warning("Could not load vehicle data. The application may not function correctly.")
         st.stop()
 
@@ -388,7 +421,6 @@ def main():
         st.dataframe(df)
 
     # Display the management interface
-    # This function will return an updated dataframe if edits were made
     display_management_interface(df)
 
 
