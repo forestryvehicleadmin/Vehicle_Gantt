@@ -30,7 +30,7 @@ if REPO_DIR.is_dir():
     base_path = REPO_DIR
 else:
     # We are likely in a Streamlit Cloud environment where files are at the root.
-    base_path = Path(" ")  # Use the current directory
+    base_path = Path(".")  # Use the current directory
 
 EXCEL_FILE_PATH = base_path / "Vehicle_Checkout_List.xlsx"
 TYPE_LIST_PATH = base_path / "type_list.txt"
