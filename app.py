@@ -37,6 +37,9 @@ TYPE_LIST_PATH = base_path / "type_list.txt"
 ASSIGNED_TO_LIST_PATH = base_path / "assigned_to_list.txt"
 DRIVERS_LIST_PATH = base_path / "authorized_drivers_list.txt"
 
+# Define the SSH URL for git operations
+GIT_SSH_URL = f"git@github.com:{GITHUB_REPO}.git"
+
 
 # --- 2. GIT & SSH SETUP ---
 # This section is cleaner and more robust.
@@ -74,8 +77,6 @@ def clone_or_pull_repo():
     if not REPO_DIR.is_dir():
         return  # In a deployed environment, we don't clone.
 
-    git_ssh_url = f"git@github.com:{GITHUB_REPO}.git"
-
     st.write("Pulling latest changes from repository...")
     try:
         # Fetch and reset to ensure we have the latest version, avoiding merge conflicts
@@ -102,7 +103,9 @@ def push_changes_to_github(commit_message):
 
         # Commit and Push
         subprocess.run(["git", "commit", "-m", commit_message], cwd=base_path, check=True)
-        subprocess.run(["git", "push", "origin", GITHUB_BRANCH], cwd=base_path, check=True)
+
+        # --- FIX: Explicitly push to the SSH URL to avoid auth errors ---
+        subprocess.run(["git", "push", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], cwd=base_path, check=True)
 
         st.success("Changes successfully pushed to GitHub!")
 
@@ -378,25 +381,29 @@ def display_management_interface(df):
                                                                 key="new_drivers")
                 new_entry["Notes"] = st.text_area("Notes:", key="new_notes")
 
-                submitted = st.form_submit_button("Add New Entry")
+                submitted = st.form_submit_button("Add New Entry and Push")
                 if submitted:
                     new_entry_df = pd.DataFrame([new_entry])
 
-                    # --- FIX: Ensure consistent datetime format ---
+                    # Ensure consistent datetime format
                     new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
                     new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
 
                     # Append to the dataframe in session state
                     updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
                     updated_df["Unique ID"] = updated_df.index  # Reset IDs
-                    st.session_state.edited_df = updated_df
 
-                    commit_message = f"Data update from Streamlit app by user at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                    push_changes_to_github(commit_message)
+                    # --- FIX: Save the updated dataframe to the excel file before pushing ---
+                    updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
 
-                    st.success(
-                        "Entry added to the table in the 'Edit Entries' tab. Remember to 'Save and Push' to make it permanent.")
+                    commit_message = f"Added new entry via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
+                    with st.spinner("Adding new entry and pushing to GitHub..."):
+                        push_changes_to_github(commit_message)
+
+                    st.success("New entry added and pushed to GitHub!")
+                    st.cache_data.clear()
+                    st.rerun()
 
         with tab3:
             st.subheader("Bulk Delete Entries by Date Range")
@@ -436,8 +443,8 @@ def main():
     if REPO_DIR.is_dir():
         setup_ssh_and_git()
         clone_or_pull_repo()
-
-    setup_ssh_and_git()
+    else:  # In deployed environment, still need to setup SSH for pushing
+        setup_ssh_and_git()
 
     # Initialize data files if they don't exist.
     initialize_data_files_if_needed()
