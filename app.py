@@ -426,29 +426,85 @@ def display_management_interface(df):
 
 
         with tab2:
+            # --- NEW: Single Delete Section ---
+            st.subheader("Delete a Single Entry")
+            with st.form("single_delete_form"):
+                def format_entry_for_selection(uid):
+                    if uid is None:
+                        return "Select an entry..."
+                    try:
+                        entry_row = st.session_state.edited_df.loc[uid]
+                        return f"{entry_row['Vehicle #']} - {entry_row['Assigned to']} ({entry_row['Checkout Date'].strftime('%Y-%m-%d')})"
+                    except KeyError:
+                        return "Invalid entry selected"
+
+                options_list = [None] + st.session_state.edited_df['Unique ID'].tolist()
+
+                entry_to_delete = st.selectbox(
+                    "Select an entry to delete",
+                    options=options_list,
+                    format_func=format_entry_for_selection,
+                    index=0
+                )
+
+                confirm_single_delete = st.checkbox("Yes, I want to delete this specific entry.")
+
+                single_delete_submitted = st.form_submit_button("Delete Selected Entry and Push")
+                if single_delete_submitted:
+                    if confirm_single_delete and entry_to_delete is not None:
+                        df_to_edit = st.session_state.edited_df.copy()
+                        entry_info = format_entry_for_selection(entry_to_delete)
+
+                        df_to_edit.drop(index=entry_to_delete, inplace=True)
+                        df_to_edit.reset_index(drop=True, inplace=True)
+                        df_to_edit["Unique ID"] = df_to_edit.index
+
+                        df_to_edit.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+
+                        commit_message = f"Deleted single entry: {entry_info}"
+                        with st.spinner("Deleting entry and pushing to GitHub..."):
+                            push_changes_to_github(commit_message)
+
+                        st.success(f"Entry '{entry_info}' deleted successfully.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Please select an entry and confirm the deletion by checking the box.")
+
+            st.markdown("---")
+
+            # --- Existing Bulk Delete Section ---
             st.subheader("Bulk Delete Entries by Date Range")
             st.warning("This action is permanent after you save and push.", icon="⚠️")
 
             with st.form("bulk_delete_form"):
                 start_dt = st.date_input("Delete entries with a 'Return Date' ON or BEFORE:")
-                confirm_delete = st.checkbox("Yes, I want to delete these entries.")
+                confirm_delete = st.checkbox("Yes, I want to delete these entries.", key="bulk_confirm")
 
-                delete_submitted = st.form_submit_button("Delete Entries")
+                delete_submitted = st.form_submit_button("Delete Entries and Push")
                 if delete_submitted:
                     if confirm_delete and start_dt:
                         start_ts = pd.to_datetime(start_dt)
 
-                        # Filter out the rows to be deleted
-                        rows_before = len(st.session_state.edited_df)
-                        st.session_state.edited_df = st.session_state.edited_df[
-                            st.session_state.edited_df['Return Date'] > start_ts].copy()
-                        rows_after = len(st.session_state.edited_df)
+                        df_to_edit = st.session_state.edited_df.copy()
+                        rows_before = len(df_to_edit)
+                        df_to_edit = df_to_edit[df_to_edit['Return Date'] > start_ts]
+                        rows_after = len(df_to_edit)
 
-                        st.success(
-                            f"{rows_before - rows_after} entries marked for deletion. Go to the 'Edit Entries' tab and click 'Save and Push' to finalize.")
+                        df_to_edit.reset_index(drop=True, inplace=True)
+                        df_to_edit["Unique ID"] = df_to_edit.index
+
+                        df_to_edit.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+
+                        commit_message = f"Bulk deleted {rows_before - rows_after} entries before {start_dt.strftime('%Y-%m-%d')}"
+                        with st.spinner("Deleting entries and pushing to GitHub..."):
+                            push_changes_to_github(commit_message)
+
+                        st.success(f"{rows_before - rows_after} entries deleted successfully.")
+                        st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error("Please confirm the deletion by checking the box.")
+                        st.error("Please confirm the deletion by checking the box and selecting a date.")
 
 
         with tab3:
