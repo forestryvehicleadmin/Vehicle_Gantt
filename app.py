@@ -378,7 +378,7 @@ def display_management_interface(df):
                 except:
                     new_entry["Vehicle #"] = 0
 
-                new_entry["Authorized Drivers"] = st.text_input("Authorized Drivers (comma-separated):",
+                new_entry["Authorized Drivers"] = st.multiselect("Authorized Drivers:", options=load_lookup_list(DRIVERS_LIST_PATH),
                                                                 key="new_drivers")
                 new_entry["Notes"] = st.text_area("Notes:", key="new_notes")
 
