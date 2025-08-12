@@ -434,7 +434,7 @@ def display_management_interface(df):
                         return "Select an entry..."
                     try:
                         entry_row = st.session_state.edited_df.loc[uid]
-                        return f"{entry_row['Vehicle #']} - {entry_row['Assigned to']} ({entry_row['Checkout Date'].strftime('%Y-%m-%d')})"
+                        return f"{entry_row['Vehicle #']} - {entry_row['Assigned to']} ({entry_row['Checkout Date'].strftime('%Y-%m-%d')} -> {entry_row['Return Date'].strftime('%Y-%m-%d')})"
                     except KeyError:
                         return "Invalid entry selected"
 
