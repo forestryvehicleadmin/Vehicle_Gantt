@@ -233,12 +233,9 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         else [start_range, end_range]
     )
 
-    # --- NEW: Separate data for confirmed and reserved entries ---
-    df_confirmed = df[df['Status'] == 'Confirmed'].copy()
-    df_reserved = df[df['Status'] == 'Reserved'].copy()
-
-    df_confirmed["Bar Label"] = df_confirmed.apply(
-        lambda row: f"{row['Vehicle #']} - {row['Assigned to']}",
+    # Conditionally create the bar label. If status is 'Reserved', the label is empty.
+    df["Bar Label"] = df.apply(
+        lambda row: f"{row['Vehicle #']} - {row['Assigned to']}" if row['Status'] != 'Reserved' else "",
         axis=1
     )
 
@@ -252,9 +249,8 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     assigned_to_names = df["Assigned to"].unique()
     color_map = {name: custom_colors[i % len(custom_colors)] for i, name in enumerate(assigned_to_names)}
 
-    # --- Create the base figure with CONFIRMED entries only ---
     fig = px.timeline(
-        df_confirmed,
+        df,
         x_start="Checkout Date",
         x_end="Return Date",
         y="Type",
@@ -263,43 +259,36 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         title="Vehicle Assignments",
         hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date", "Authorized Drivers",
                     "Notes"],
-        text="Bar Label"
+        text="Bar Label",
+        pattern_shape="Status",
     )
 
-    # --- Chart Styling for main bars ---
+    # --- Chart Styling ---
     fig.update_traces(
         textposition="inside",
         insidetextanchor="start",
         textfont=dict(size=12, color="white", family="Arial Black"),
-        opacity=0.9,
-        width=0.9  # Set a standard width for the main bars
+        opacity=0.9
     )
-
-    # --- Manually add RESERVED entries as separate, offset bars ---
-    show_reserved_legend = True
-    for _, row in df_reserved.iterrows():
-        fig.add_trace(
-            go.Bar(
-                y=[row['Type']],
-                x=[(row['Return Date'] - row['Checkout Date']).total_seconds() / (3600 * 24)],
-                base=[row['Checkout Date']],
-                orientation='h',
-                marker=dict(
-                    color='rgba(220, 53, 69, 0.6)',  # Semi-transparent red
-                    line=dict(width=1, color='rgba(220, 53, 69, 1.0)')
-                ),
-                width=0.3,  # Make the reserved bar thinner
-                offset=-0.4,  # Shift it down to appear below the main bar
-                hovertext=f"<b>Reserved for {row['Assigned to']}</b><br>({row['Checkout Date']:%Y-%m-%d} to {row['Return Date']:%Y-%m-%d})",
-                hoverinfo="text",
-                name="Reserved",
-                showlegend=show_reserved_legend
-            )
-        )
-        show_reserved_legend = False  # Only show the legend item once
 
     unique_types = df['Type'].unique()
     fig.update_yaxes(categoryorder="array", categoryarray=unique_types, title=None)
+
+    for _, row in df.iterrows():
+        if row['Status'] == 'Reserved':
+            fig.add_shape(
+                type="rect",
+                x0=row['Checkout Date'],
+                x1=row['Return Date'],
+                y0=unique_types.tolist().index(row['Type']) - 0.4,
+                y1=unique_types.tolist().index(row['Type']) + 0.4,
+                xref="x",
+                yref="y",
+                fillcolor="rgba(255,0,0,0.1)",
+                line=dict(width=0),
+                layer="below",
+
+            )
 
     # Add a vertical line for today's date
     today_label = today + pd.Timedelta(hours=12)
