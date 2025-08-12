@@ -281,15 +281,15 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         fig.add_trace(
             go.Bar(
                 y=[row['Type']],
-                x=[row['Return Date']],
+                x=[(row['Return Date'] - row['Checkout Date']).total_seconds() / (3600 * 24)],
                 base=[row['Checkout Date']],
                 orientation='h',
                 marker=dict(
                     color='rgba(220, 53, 69, 0.6)',  # Semi-transparent red
                     line=dict(width=1, color='rgba(220, 53, 69, 1.0)')
                 ),
-                width=0.9,  # Make the reserved bar thinner
-                offset=-0.5,  # Shift it down to appear below the main bar
+                width=0.3,  # Make the reserved bar thinner
+                offset=-0.4,  # Shift it down to appear below the main bar
                 hovertext=f"<b>Reserved for {row['Assigned to']}</b><br>({row['Checkout Date']:%Y-%m-%d} to {row['Return Date']:%Y-%m-%d})",
                 hoverinfo="text",
                 name="Reserved",
