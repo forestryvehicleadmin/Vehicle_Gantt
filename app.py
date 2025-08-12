@@ -1,5 +1,6 @@
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 from datetime import datetime, timedelta
 import subprocess
@@ -21,12 +22,20 @@ except (KeyError, FileNotFoundError):
     st.stop()
 
 # Use Path objects for cleaner file paths
-REPO_DIR = Path("")
-# CORRECTED: Added assignment operators and joined with REPO_DIR
-EXCEL_FILE_PATH = REPO_DIR / "Vehicle_Checkout_List.xlsx"
-TYPE_LIST_PATH = REPO_DIR / "type_list.txt"
-ASSIGNED_TO_LIST_PATH = REPO_DIR / "assigned_to_list.txt"
-DRIVERS_LIST_PATH = REPO_DIR / "authorized_drivers_list.txt"
+# This logic makes the app work both locally (by cloning into 'repo')
+# and when deployed on Streamlit Cloud (where files are in the root).
+REPO_DIR = Path("repo")
+if REPO_DIR.is_dir():
+    # We are in an environment where the repo was cloned into a subdirectory.
+    base_path = REPO_DIR
+else:
+    # We are likely in a Streamlit Cloud environment where files are at the root.
+    base_path = Path(".")  # Use the current directory
+
+EXCEL_FILE_PATH = base_path / "Vehicle_Checkout_List.xlsx"
+TYPE_LIST_PATH = base_path / "type_list.txt"
+ASSIGNED_TO_LIST_PATH = base_path / "assigned_to_list.txt"
+DRIVERS_LIST_PATH = base_path / "authorized_drivers_list.txt"
 
 
 # --- 2. GIT & SSH SETUP ---
@@ -61,46 +70,39 @@ Host github.com
 
 def clone_or_pull_repo():
     """Clones the repo if it doesn't exist, otherwise pulls the latest changes."""
+    # This function should only run if the 'repo' directory is the intended mode of operation.
+    if not REPO_DIR.is_dir():
+        return  # In a deployed environment, we don't clone.
+
     git_ssh_url = f"git@github.com:{GITHUB_REPO}.git"
 
-    if not REPO_DIR.is_dir():
-        st.write("Cloning repository...")
-        try:
-            subprocess.run(["git", "clone", git_ssh_url, str(REPO_DIR)], check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            st.error(f"Failed to clone repository. Git Error: {e.stderr}")
-            # Clean up partial clone if it exists
-            if REPO_DIR.exists():
-                shutil.rmtree(REPO_DIR)
-            st.stop()
-    else:
-        st.write("Pulling latest changes from repository...")
-        try:
-            # Fetch and reset to ensure we have the latest version, avoiding merge conflicts
-            subprocess.run(["git", "fetch", "origin", GITHUB_BRANCH], cwd=REPO_DIR, check=True, capture_output=True,
-                           text=True)
-            subprocess.run(["git", "reset", "--hard", f"origin/{GITHUB_BRANCH}"], cwd=REPO_DIR, check=True,
-                           capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            st.error(f"Failed to pull changes. Git Error: {e.stderr}")
-            st.stop()
+    st.write("Pulling latest changes from repository...")
+    try:
+        # Fetch and reset to ensure we have the latest version, avoiding merge conflicts
+        subprocess.run(["git", "fetch", "origin", GITHUB_BRANCH], cwd=REPO_DIR, check=True, capture_output=True,
+                       text=True)
+        subprocess.run(["git", "reset", "--hard", f"origin/{GITHUB_BRANCH}"], cwd=REPO_DIR, check=True,
+                       capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        st.error(f"Failed to pull changes. Git Error: {e.stderr}")
+        st.stop()
 
 
 def push_changes_to_github(commit_message):
     """Commits all changes and pushes them to the GitHub repository."""
     try:
         # Add all changes
-        subprocess.run(["git", "add", "-A"], cwd=REPO_DIR, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=base_path, check=True)
 
         # Check if there's anything to commit
-        status_result = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_DIR, capture_output=True, text=True)
+        status_result = subprocess.run(["git", "status", "--porcelain"], cwd=base_path, capture_output=True, text=True)
         if not status_result.stdout:
             st.info("No changes to commit.")
             return
 
         # Commit and Push
-        subprocess.run(["git", "commit", "-m", commit_message], cwd=REPO_DIR, check=True)
-        subprocess.run(["git", "push", "origin", GITHUB_BRANCH], cwd=REPO_DIR, check=True)
+        subprocess.run(["git", "commit", "-m", commit_message], cwd=base_path, check=True)
+        subprocess.run(["git", "push", "origin", GITHUB_BRANCH], cwd=base_path, check=True)
 
         st.success("Changes successfully pushed to GitHub!")
 
@@ -113,7 +115,7 @@ def push_changes_to_github(commit_message):
 def initialize_data_files_if_needed():
     """Checks for the main Excel file and creates it if it doesn't exist."""
     if not EXCEL_FILE_PATH.exists():
-        st.warning("Data file not found in repository. Initializing a new one...")
+        st.warning("Data file not found. Initializing a new one...")
 
         # Define the schema for the new Excel file
         columns = [
@@ -133,12 +135,11 @@ def initialize_data_files_if_needed():
         DRIVERS_LIST_PATH.touch()
 
         # Push the new files to the repo to initialize it
-        with st.spinner("Pushing initial data files to GitHub..."):
-            push_changes_to_github("Initialize data files")
-
-        st.success("Repository initialized successfully. The app will now reload.")
-        # Rerun the app to load the newly created files
-        st.rerun()
+        if REPO_DIR.is_dir():  # Only push if we are in a git repo context
+            with st.spinner("Pushing initial data files to GitHub..."):
+                push_changes_to_github("Initialize data files")
+            st.success("Repository initialized successfully. The app will now reload.")
+            st.rerun()
 
 
 @st.cache_data
@@ -196,7 +197,24 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     """Generates the Plotly Gantt chart. Caching this is a major performance win."""
     if _df.empty:
         st.info("No vehicle assignments to display. Add new entries in the 'Manage Entries' section.")
-        return px.timeline(title="Vehicle Assignments")  # Return empty chart
+        fig = go.Figure()
+        fig.update_layout(
+            title="Vehicle Assignments",
+            height=800,
+            annotations=[
+                dict(
+                    text="No data available",
+                    showarrow=False,
+                    xref="paper",
+                    yref="paper",
+                    x=0.5,
+                    y=0.5,
+                )
+            ],
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+        )
+        return fig
 
     df = _df.copy()
     today = datetime.today()
@@ -243,7 +261,6 @@ def generate_gantt_chart(_df, view_mode, show_legend):
     unique_types = df['Type'].unique()
     fig.update_yaxes(categoryorder="array", categoryarray=unique_types, title=None)
 
-    # --- FIX: Add vertical line and annotation separately ---
     # Add a vertical line for today's date
     fig.add_vline(x=today, line_width=2, line_dash="dash", line_color="red")
 
@@ -408,10 +425,12 @@ def main():
     st.title("SoF Vehicle Assignments")
 
     # --- Setup and Data Loading ---
-    setup_ssh_and_git()
-    clone_or_pull_repo()
+    # Only setup git and clone if we are in a local/dev environment
+    if REPO_DIR.is_dir():
+        setup_ssh_and_git()
+        clone_or_pull_repo()
 
-    # Initialize data files if they don't exist in the repo.
+    # Initialize data files if they don't exist.
     initialize_data_files_if_needed()
 
     df = load_vehicle_data(EXCEL_FILE_PATH)
