@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import subprocess
 import os
 from pathlib import Path
-import shutil
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 # Use st.secrets for sensitive information
@@ -424,7 +423,6 @@ def display_management_interface(df):
                     st.cache_data.clear()
                     st.rerun()
 
-
         with tab2:
             # --- NEW: Single Delete Section ---
             st.subheader("Delete a Single Entry")
@@ -619,7 +617,6 @@ def main():
 
     # Display the management interface
     display_management_interface(df)
-
 
 if __name__ == "__main__":
     main()
