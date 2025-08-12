@@ -437,6 +437,8 @@ def main():
         setup_ssh_and_git()
         clone_or_pull_repo()
 
+    setup_ssh_and_git()
+
     # Initialize data files if they don't exist.
     initialize_data_files_if_needed()
 
