@@ -22,7 +22,7 @@ except (KeyError, FileNotFoundError):
 
 # Use Path objects for cleaner file paths
 REPO_DIR = Path("repo")
-EXCEL_FILE_PATH = REPO_DIR / "Vehicle_Checkout_List.xlsx"
+EXCEL_FILE_PATH = "Vehicle_Checkout_List.xlsx"
 TYPE_LIST_PATH = REPO_DIR / "type_list.txt"
 ASSIGNED_TO_LIST_PATH = REPO_DIR / "assigned_to_list.txt"
 DRIVERS_LIST_PATH = REPO_DIR / "authorized_drivers_list.txt"
