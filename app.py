@@ -268,7 +268,8 @@ def generate_gantt_chart(_df, view_mode, show_legend):
         textposition="inside",
         insidetextanchor="start",
         textfont=dict(size=12, color="white", family="Arial Black"),
-        opacity=0.9
+        opacity=0.9,
+        layer="above"
     )
 
     unique_types = df['Type'].unique()
