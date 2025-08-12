@@ -457,7 +457,7 @@ def display_management_interface(df):
                         return "Select an entry..."
                     try:
                         entry_row = st.session_state.edited_df.loc[uid]
-                        return f"{entry_row['Vehicle #']} - {entry_row['Assigned to']} ({entry_row['Checkout Date'].strftime('%Y-%m-%d')} -> {entry_row['Return Date'].strftime('%Y-%m-%d')})"
+                        return f"{entry_row['Vehicle #']} - {entry_row['Assigned to']} ({entry_row['Checkout Date'].strftime('%d-%m-%Y')} -> {entry_row['Return Date'].strftime('%d-%m-%Y')})"
                     except KeyError:
                         return "Invalid entry selected"
 
@@ -519,7 +519,7 @@ def display_management_interface(df):
 
                         df_to_edit.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
 
-                        commit_message = f"Bulk deleted {rows_before - rows_after} entries before {start_dt.strftime('%Y-%m-%d')}"
+                        commit_message = f"Bulk deleted {rows_before - rows_after} entries before {start_dt.strftime('%d-%m-%Y')}"
                         with st.spinner("Deleting entries and pushing to GitHub..."):
                             push_changes_to_github(commit_message)
 
