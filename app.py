@@ -368,12 +368,13 @@ def generate_gantt_chart(_df, view_mode, show_legend):
 
     return fig
 
-with st.expander():
+with st.expander:
     st.subheader("Vehicle Type List")
     type_list_content = load_type_list("type_list.txt")
 
     # Use st.markdown() to display line-separated vehicle types
     st.markdown(f"```\n{type_list_content}\n```")
+
 
 def display_management_interface(df):
     """Renders the password-protected management UI."""
