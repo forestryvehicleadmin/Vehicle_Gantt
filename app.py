@@ -21,7 +21,7 @@ except (KeyError, FileNotFoundError):
     st.stop()
 
 # Use Path objects for cleaner file paths
-REPO_DIR = Path("~")
+REPO_DIR = Path("")
 # CORRECTED: Added assignment operators and joined with REPO_DIR
 EXCEL_FILE_PATH = REPO_DIR / "Vehicle_Checkout_List.xlsx"
 TYPE_LIST_PATH = REPO_DIR / "type_list.txt"
