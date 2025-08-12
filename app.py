@@ -67,7 +67,7 @@ Host github.com
     subprocess.run(["git", "config", "--global", "user.name", "forestryvehicleadmin"], check=True)
     subprocess.run(["git", "config", "--global", "user.email", "forestryvehicleadmin@nau.edu"], check=True)
 
-
+'''
 def clone_or_pull_repo():
     """Clones the repo if it doesn't exist, otherwise pulls the latest changes."""
     # This function should only run if the 'repo' directory is the intended mode of operation.
@@ -85,7 +85,7 @@ def clone_or_pull_repo():
                        capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         st.error(f"Failed to pull changes. Git Error: {e.stderr}")
-        st.stop()
+        st.stop()'''
 
 
 def push_changes_to_github(commit_message):
