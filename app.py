@@ -382,6 +382,10 @@ def display_management_interface(df):
                 if submitted:
                     new_entry_df = pd.DataFrame([new_entry])
 
+                    # --- FIX: Ensure consistent datetime format ---
+                    new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
+                    new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
+
                     # Append to the dataframe in session state
                     updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
                     updated_df["Unique ID"] = updated_df.index  # Reset IDs
