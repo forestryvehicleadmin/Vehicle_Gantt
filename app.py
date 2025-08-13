@@ -190,8 +190,8 @@ def load_vehicle_data(file_path):
         df = pd.read_excel(file_path, engine="openpyxl")
 
         # Data cleaning and type conversion
-        df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
-        df['Return Date'] = pd.to_datetime(df['Return Date'])
+        df['Checkout Date'] = pd.to_datetime(df['Checkout Date'], format='%m/%d/%Y', errors='coerce')
+        df['Return Date'] = pd.to_datetime(df['Return Date'], format='%m/%d/%Y', errors='coerce')
         df['Notes'] = df['Notes'].astype(str).fillna('')
         df['Authorized Drivers'] = df['Authorized Drivers'].astype(str).fillna('')
         df = ensure_persistent_numeric_ids(df)  # <--- ENSURE persistent UUIDs
@@ -456,8 +456,8 @@ def display_management_interface(df):
                     new_entry_df = pd.DataFrame([new_entry])
 
                     # Ensure consistent datetime format
-                    new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
-                    new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
+                    new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'], format='%m/%d/%Y', errors='coerce')
+                    new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'], format='%m/%d/%Y', errors='coerce')
                     # Append and ensure all IDs are persistent UUIDs
                     updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
                     updated_df = ensure_persistent_numeric_ids(updated_df)
