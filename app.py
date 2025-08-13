@@ -19,7 +19,7 @@ try:
 except (KeyError, FileNotFoundError):
     st.error("Required secrets (repo, branch, passcode, deploy_key) are not set. Please configure them.")
     st.stop()
-
+    
 # Use Path objects for cleaner file paths
 # This logic makes the app work both locally (by cloning into 'repo')
 # and when deployed on Streamlit Cloud (where files are in the root).
@@ -39,6 +39,31 @@ DRIVERS_LIST_PATH = base_path / "authorized_drivers_list.txt"
 # Define the SSH URL for git operations
 GIT_SSH_URL = f"git@github.com:{GITHUB_REPO}.git"
 
+# --- ID GENERATION ---
+def get_next_id(existing_ids, length=4):
+    """Returns the next available numeric ID as a zero-padded string."""
+    numeric_ids = [int(i) for i in existing_ids if str(i).isdigit() and len(str(i)) <= length]
+    next_id = max(numeric_ids, default=0) + 1
+    return str(next_id).zfill(length)
+
+def ensure_persistent_numeric_ids(df, length=4):
+    """
+    Ensures all rows have a persistent numeric ID in the 'Unique ID' column.
+    If any blank/NaN or non-numeric is found, replaces with a new unique numeric ID.
+    """
+    existing_ids = set()
+    def make_or_fix_id(val):
+        if pd.isnull(val) or not str(val).isdigit() or len(str(val)) != length or str(val) in existing_ids:
+            new_id = get_next_id(existing_ids, length)
+            existing_ids.add(new_id)
+            return new_id
+        existing_ids.add(str(val))
+        return str(val)
+    if "Unique ID" not in df.columns:
+        df["Unique ID"] = [get_next_id(existing_ids, length) for _ in range(len(df))]
+    else:
+        df["Unique ID"] = df["Unique ID"].apply(make_or_fix_id)
+    return df
 
 # --- 2. GIT & SSH SETUP ---
 # This section is cleaner and more robust.
@@ -152,7 +177,6 @@ def load_lookup_list(file_path):
     with open(file_path, "r") as f:
         return sorted([line.strip() for line in f if line.strip()])
 
-
 @st.cache_data
 def load_vehicle_data(file_path):
     """Loads and processes the main vehicle data from the Excel file."""
@@ -164,11 +188,7 @@ def load_vehicle_data(file_path):
         df['Return Date'] = pd.to_datetime(df['Return Date'])
         df['Notes'] = df['Notes'].astype(str).fillna('')
         df['Authorized Drivers'] = df['Authorized Drivers'].astype(str).fillna('')
-
-        # Ensure a unique ID for editing
-        if "Unique ID" not in df.columns or df["Unique ID"].isnull().any():
-            df["Unique ID"] = range(len(df))
-
+        df = ensure_persistent_numeric_ids(df)  # <--- ENSURE persistent UUIDs
         df = df.sort_values(by="Type", ascending=True)
         return df
     except Exception as e:
@@ -423,7 +443,8 @@ def display_management_interface(df):
                                                                  options=load_lookup_list(DRIVERS_LIST_PATH),
                                                                  key="new_drivers")
                 new_entry["Notes"] = st.text_area("Notes:", key="new_notes")
-
+                existing_ids = set(st.session_state.edited_df["Unique ID"]) if "Unique ID" in st.session_state.edited_df.columns else set()
+                new_entry["Unique ID"] = get_next_id(existing_ids)
                 submitted = st.form_submit_button("Add New Entry and Push")
                 if submitted:
                     new_entry_df = pd.DataFrame([new_entry])
@@ -431,12 +452,9 @@ def display_management_interface(df):
                     # Ensure consistent datetime format
                     new_entry_df['Checkout Date'] = pd.to_datetime(new_entry_df['Checkout Date'])
                     new_entry_df['Return Date'] = pd.to_datetime(new_entry_df['Return Date'])
-
-                    # Append to the dataframe in session state
+                    # Append and ensure all IDs are persistent UUIDs
                     updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
-                    updated_df["Unique ID"] = updated_df.index  # Reset IDs
-
-                    # --- FIX: Save the updated dataframe to the excel file before pushing ---
+                    updated_df = ensure_persistent_numeric_ids(updated_df)
                     updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
 
                     commit_message = f"Added new entry via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -456,9 +474,9 @@ def display_management_interface(df):
                     if uid is None:
                         return "Select an entry..."
                     try:
-                        entry_row = st.session_state.edited_df.loc[uid]
+                        entry_row = st.session_state.edited_df.loc[st.session_state.edited_df["Unique ID"] == uid].iloc[0]
                         return f"{entry_row['Vehicle #']} - {entry_row['Assigned to']} ({entry_row['Checkout Date'].strftime('%m-%d-%Y')} -> {entry_row['Return Date'].strftime('%m-%d-%Y')})"
-                    except KeyError:
+                    except Exception:
                         return "Invalid entry selected"
 
                 options_list = [None] + st.session_state.edited_df['Unique ID'].tolist()
@@ -477,11 +495,9 @@ def display_management_interface(df):
                     if confirm_single_delete and entry_to_delete is not None:
                         df_to_edit = st.session_state.edited_df.copy()
                         entry_info = format_entry_for_selection(entry_to_delete)
-
-                        df_to_edit.drop(index=entry_to_delete, inplace=True)
+                        df_to_edit = df_to_edit[df_to_edit['Unique ID'] != entry_to_delete]
                         df_to_edit.reset_index(drop=True, inplace=True)
-                        df_to_edit["Unique ID"] = df_to_edit.index
-
+                        df_to_edit = ensure_persistent_numeric_ids(df_to_edit)
                         df_to_edit.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
 
                         commit_message = f"Deleted single entry: {entry_info}"
@@ -515,8 +531,7 @@ def display_management_interface(df):
                         rows_after = len(df_to_edit)
 
                         df_to_edit.reset_index(drop=True, inplace=True)
-                        df_to_edit["Unique ID"] = df_to_edit.index
-
+                        df_to_edit = ensure_persistent_numeric_ids(df_to_edit)
                         df_to_edit.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
 
                         commit_message = f"Bulk deleted {rows_before - rows_after} entries before {start_dt.strftime('%m-%d-%Y')}"
@@ -566,14 +581,10 @@ def display_management_interface(df):
                 num_rows="dynamic",
                 use_container_width=True,
                 column_config={
-                    "Unique ID": st.column_config.NumberColumn(disabled=True),
-                    "Type": st.column_config.SelectboxColumn("Type", options=load_lookup_list(TYPE_LIST_PATH),
-                                                             required=True),
-                    "Assigned to": st.column_config.SelectboxColumn("Assigned to",
-                                                                    options=load_lookup_list(ASSIGNED_TO_LIST_PATH),
-                                                                    required=True),
-                    "Status": st.column_config.SelectboxColumn("Status", options=["Confirmed", "Reserved"],
-                                                               required=True),
+                    "Unique ID": st.column_config.TextColumn(disabled=True),
+                    "Type": st.column_config.SelectboxColumn("Type", options=load_lookup_list(TYPE_LIST_PATH), required=True),
+                    "Assigned to": st.column_config.SelectboxColumn("Assigned to", options=load_lookup_list(ASSIGNED_TO_LIST_PATH), required=True),
+                    "Status": st.column_config.SelectboxColumn("Status", options=["Confirmed", "Reserved"], required=True),
                     "Checkout Date": st.column_config.DateColumn("Checkout", required=True),
                     "Return Date": st.column_config.DateColumn("Return", required=True),
                 },
@@ -608,7 +619,7 @@ def display_management_interface(df):
 
                     # Final cleanup: sort and re-assign all unique IDs to ensure integrity
                     updated_full_df = updated_full_df.sort_values(by="Type").reset_index(drop=True)
-                    updated_full_df["Unique ID"] = updated_full_df.index
+                    updated_full_df = ensure_persistent_numeric_ids(updated_full_df)
 
                     # Save the fully merged and cleaned dataframe to Excel
                     updated_full_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
