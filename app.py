@@ -451,7 +451,7 @@ def display_management_interface(df):
                                                                  options=load_lookup_list(DRIVERS_LIST_PATH),
                                                                  key="new_drivers")
                 new_entry["Notes"] = st.text_area("Notes:", key="new_notes")
-                existing_ids = set(st.session_state.edited_df["Unique ID"]) if "Unique ID" in st.session_state.edited_df.columns else set()
+                existing_ids = set(df["Unique ID"]) 
                 new_entry["Unique ID"] = get_next_id(existing_ids)
                 submitted = st.form_submit_button("Add New Entry and Push")
                 if submitted:
