@@ -48,27 +48,25 @@ def get_next_id(existing_ids, length=4):
 
 def ensure_persistent_numeric_ids(df, length=4):
     """
-    Only assigns a new ID to rows where 'Unique ID' is missing or invalid.
-    Does not reassign IDs for rows that already have a valid, unique ID.
+    Assigns a new ID only to rows where 'Unique ID' is missing or invalid.
+    Never reassigns a valid, unique ID.
     """
     if "Unique ID" not in df.columns:
         df["Unique ID"] = ""
-    # Track IDs that are already valid and unique
-    seen = set()
+    # Collect all valid IDs
+    valid_ids = set(str(i) for i in df["Unique ID"] if str(i).isdigit() and len(str(i)) == length)
+    # Assign new IDs only to missing/invalid
+    next_id = max([int(i) for i in valid_ids], default=0) + 1
     def fix_id(val):
         val_str = str(val)
-        if (
-            pd.isnull(val)
-            or not val_str.isdigit()
-            or len(val_str) != length
-            or val_str in seen
-        ):
-            # Generate a new unique ID
-            new_id = 1 if not seen else max(int(i) for i in seen) + 1
-            while str(new_id).zfill(length) in seen:
-                new_id += 1
-            val_str = str(new_id).zfill(length)
-        seen.add(val_str)
+        if pd.isnull(val) or not val_str.isdigit() or len(val_str) != length or val_str in valid_ids:
+            nonlocal next_id
+            while str(next_id).zfill(length) in valid_ids:
+                next_id += 1
+            new_id = str(next_id).zfill(length)
+            valid_ids.add(new_id)
+            next_id += 1
+            return new_id
         return val_str
     df["Unique ID"] = df["Unique ID"].apply(fix_id)
     return df
