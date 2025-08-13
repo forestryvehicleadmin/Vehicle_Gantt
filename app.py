@@ -49,20 +49,20 @@ def get_next_id(existing_ids, length=4):
 def ensure_persistent_numeric_ids(df, length=4):
     """
     Ensures all rows have a persistent numeric ID in the 'Unique ID' column.
-    If any blank/NaN or non-numeric is found, replaces with a new unique numeric ID.
+    Only assigns a new ID if missing or invalid; does not reassign existing valid IDs.
     """
-    existing_ids = set()
+    if "Unique ID" not in df.columns:
+        df["Unique ID"] = ""
+    existing_ids = set(str(i) for i in df["Unique ID"] if str(i).isdigit() and len(str(i)) == length)
     def make_or_fix_id(val):
-        if pd.isnull(val) or not str(val).isdigit() or len(str(val)) != length or str(val) in existing_ids:
+        val_str = str(val)
+        if pd.isnull(val) or not val_str.isdigit() or len(val_str) != length or val_str in existing_ids:
             new_id = get_next_id(existing_ids, length)
             existing_ids.add(new_id)
             return new_id
-        existing_ids.add(str(val))
-        return str(val)
-    if "Unique ID" not in df.columns:
-        df["Unique ID"] = [get_next_id(existing_ids, length) for _ in range(len(df))]
-    else:
-        df["Unique ID"] = df["Unique ID"].apply(make_or_fix_id)
+        existing_ids.add(val_str)
+        return val_str
+    df["Unique ID"] = df["Unique ID"].apply(make_or_fix_id)
     return df
 
 # --- 2. GIT & SSH SETUP ---
