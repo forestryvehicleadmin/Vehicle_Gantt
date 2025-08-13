@@ -169,7 +169,7 @@ def load_vehicle_data(file_path):
         if "Unique ID" not in df.columns or df["Unique ID"].isnull().any():
             df["Unique ID"] = range(len(df))
 
-        df = df.sort_values(by="Type", ascending=True)
+        df = df.sort_values(by="Unique ID", ascending=True)
         return df
     except Exception as e:
         st.error(f"Error loading or processing Excel file: {e}")
