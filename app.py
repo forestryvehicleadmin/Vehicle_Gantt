@@ -513,6 +513,7 @@ def display_management_interface(df):
 
                         st.success(f"Entry '{entry_info}' deleted successfully.")
                         st.cache_data.clear()
+                        st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
                         st.rerun()
                     else:
                         st.error("Please select an entry and confirm the deletion by checking the box.")
@@ -547,6 +548,7 @@ def display_management_interface(df):
 
                         st.success(f"{rows_before - rows_after} entries deleted successfully.")
                         st.cache_data.clear()
+                        st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
                         st.rerun()
                     else:
                         st.error("Please confirm the deletion by checking the box and selecting a date.")
@@ -664,6 +666,7 @@ def display_management_interface(df):
 
                 st.success(f"'{new_name}' added successfully.")
                 st.cache_data.clear()
+                st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
                 st.rerun()
 
             with st.form("add_assigned_to_form"):
