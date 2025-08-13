@@ -446,6 +446,7 @@ def display_management_interface(df):
 
                     st.success("New entry added and pushed to GitHub!")
                     st.cache_data.clear()
+                    st.session_state.edited_df = df_to_edit
                     st.rerun()
 
         with tab2:
@@ -490,6 +491,7 @@ def display_management_interface(df):
 
                         st.success(f"Entry '{entry_info}' deleted successfully.")
                         st.cache_data.clear()
+                        st.session_state.edited_df = df_to_edit
                         st.rerun()
                     else:
                         st.error("Please select an entry and confirm the deletion by checking the box.")
@@ -525,6 +527,7 @@ def display_management_interface(df):
 
                         st.success(f"{rows_before - rows_after} entries deleted successfully.")
                         st.cache_data.clear()
+                        st.session_state.edited_df = df_to_edit
                         st.rerun()
                     else:
                         st.error("Please confirm the deletion by checking the box and selecting a date.")
@@ -607,7 +610,7 @@ def display_management_interface(df):
                         updated_full_df = pd.concat([updated_full_df, added_rows], ignore_index=True)
 
                     # Final cleanup: sort and re-assign all unique IDs to ensure integrity
-                    updated_full_df = updated_full_df.sort_values(by="Type").reset_index(drop=True)
+                    updated_full_df = updated_full_df.sort_values(by="Unique ID").reset_index(drop=True)
                     updated_full_df["Unique ID"] = updated_full_df.index
 
                     # Save the fully merged and cleaned dataframe to Excel
