@@ -162,6 +162,8 @@ def load_vehicle_data(file_path):
         # Data cleaning and type conversion
         df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
         df['Return Date'] = pd.to_datetime(df['Return Date'])
+        # --- Ensure all Return Dates are at 23:59 ---
+        df['Return Date'] = df['Return Date'].apply(set_time_to_2359)
         df['Notes'] = df['Notes'].astype(str).fillna('')
         df['Authorized Drivers'] = df['Authorized Drivers'].astype(str).fillna('')
 
@@ -411,7 +413,9 @@ def display_management_interface(df):
                 new_entry["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"], key="new_status")
                 new_entry["Checkout Date"] = st.date_input("Checkout Date:", value=datetime.today(), key="new_checkout")
                 new_entry["Return Date"] = st.date_input("Return Date:", value=datetime.today() + timedelta(days=1),
-                                                         key="new_return")
+                                                     key="new_return")
+                # --- Set Return Date to 23:59 ---
+                new_entry["Return Date"] = set_time_to_2359(new_entry["Return Date"])
 
                 # Auto-populate vehicle number from type
                 try:
@@ -504,6 +508,11 @@ def display_management_interface(df):
 
             with st.form("bulk_delete_form"):
                 start_dt = st.date_input("Delete entries with a 'Return Date' ON or BEFORE:")
+                # --- Set start_dt to 23:59 for comparison ---
+                if start_dt:
+                    start_ts = set_time_to_2359(start_dt)
+                else:
+                    start_ts = None
                 confirm_delete = st.checkbox("Yes, I want to delete these entries.", key="bulk_confirm")
 
                 delete_submitted = st.form_submit_button("Delete Entries and Push")
@@ -513,6 +522,7 @@ def display_management_interface(df):
 
                         df_to_edit = st.session_state.edited_df.copy()
                         rows_before = len(df_to_edit)
+                        # --- Compare using 23:59 time ---
                         df_to_edit = df_to_edit[df_to_edit['Return Date'] > start_ts]
                         rows_after = len(df_to_edit)
 
@@ -612,6 +622,9 @@ def display_management_interface(df):
                     # Final cleanup: sort and re-assign all unique IDs to ensure integrity
                     updated_full_df = updated_full_df.sort_values(by="Unique ID").reset_index(drop=True)
                     updated_full_df["Unique ID"] = updated_full_df.index
+
+                    # --- Ensure Return Date is 23:59 for all rows ---
+                    updated_full_df['Return Date'] = updated_full_df['Return Date'].apply(set_time_to_2359)
 
                     # Save the fully merged and cleaned dataframe to Excel
                     updated_full_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
