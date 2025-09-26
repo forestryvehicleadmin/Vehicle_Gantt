@@ -153,6 +153,22 @@ def load_lookup_list(file_path):
         return sorted([line.strip() for line in f if line.strip()])
 
 
+def set_time_to_2359(dt):
+    """Sets the time of a datetime or date object to 23:59."""
+    if pd.isnull(dt):
+        return pd.NaT
+    if isinstance(dt, pd.Timestamp):
+        return dt.replace(hour=23, minute=59, second=0, microsecond=0)
+    if isinstance(dt, datetime):
+        return dt.replace(hour=23, minute=59, second=0, microsecond=0)
+    if isinstance(dt, str):
+        try:
+            dt = pd.to_datetime(dt)
+            return dt.replace(hour=23, minute=59, second=0, microsecond=0)
+        except Exception:
+            return pd.NaT
+    return pd.to_datetime(dt).replace(hour=23, minute=59, second=0, microsecond=0)
+
 @st.cache_data
 def load_vehicle_data(file_path):
     """Loads and processes the main vehicle data from the Excel file."""
@@ -537,7 +553,7 @@ def display_management_interface(df):
 
                         st.success(f"{rows_before - rows_after} entries deleted successfully.")
                         st.cache_data.clear()
-                        st.session_state.edited_df = dload_vehicle_data(EXCEL_FILE_PATH)
+                        st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
                         st.rerun()
                     else:
                         st.error("Please confirm the deletion by checking the box and selecting a date.")
