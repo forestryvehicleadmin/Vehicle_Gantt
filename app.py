@@ -6,16 +6,34 @@ from datetime import datetime, timedelta
 import subprocess
 import os
 from pathlib import Path
+import toml  # <-- Add this import
 
 # --- 1. CONFIGURATION & CONSTANTS ---
-# Use st.secrets for sensitive information
+# Prefer secrets.toml if present, else fallback to st.secrets
+def load_secrets():
+    secrets_path = Path("secrets.toml")
+    if secrets_path.exists():
+        secrets = toml.load(secrets_path)
+        return {
+            "GITHUB_REPO": secrets["git"]["repo"],
+            "GITHUB_BRANCH": secrets["git"]["branch"],
+            "VEM_PASSCODE": secrets["auth"]["passcode"],
+            "DEPLOY_KEY": secrets["git"]["deploy_key"],
+        }
+    else:
+        return {
+            "GITHUB_REPO": st.secrets["git"]["repo"],
+            "GITHUB_BRANCH": st.secrets["git"]["branch"],
+            "VEM_PASSCODE": st.secrets["auth"]["passcode"],
+            "DEPLOY_KEY": st.secrets["git"]["deploy_key"],
+        }
+
 try:
-    # For local development, you can have a secrets.toml file
-    # For deployment, set these in the Streamlit Cloud dashboard
-    GITHUB_REPO = st.secrets["git"]["repo"]  # e.g., "forestryvehicleadmin/Vehicle_Gantt"
-    GITHUB_BRANCH = st.secrets["git"]["branch"]  # e.g., "master"
-    VEM_PASSCODE = st.secrets["auth"]["passcode"]  # e.g., "1234"
-    DEPLOY_KEY = st.secrets["git"]["deploy_key"]
+    secrets = load_secrets()
+    GITHUB_REPO = secrets["GITHUB_REPO"]
+    GITHUB_BRANCH = secrets["GITHUB_BRANCH"]
+    VEM_PASSCODE = secrets["VEM_PASSCODE"]
+    DEPLOY_KEY = secrets["DEPLOY_KEY"]
 except (KeyError, FileNotFoundError):
     st.error("Required secrets (repo, branch, passcode, deploy_key) are not set. Please configure them.")
     st.stop()
@@ -414,7 +432,13 @@ def display_management_interface(df):
             st.session_state.edited_df = df.copy()
 
         # --- UI TABS for better organization ---
-        tab1, tab2, tab3, tab4 = st.tabs(["➕ Create New Entry","🗑️ Delete Entries" , "📝 Edit Entries", "👤 Manage Lists"])
+        tab1, tab_bulk, tab2, tab3, tab4 = st.tabs([
+            "➕ Create New Entry",
+            "📅 Bulk Create Entries",
+            "🗑️ Delete Entries",
+            "📝 Edit Entries",
+            "👤 Manage Lists"
+        ])
 
         with tab1:
             st.subheader("Create a Single New Entry")
@@ -468,6 +492,165 @@ def display_management_interface(df):
                     st.cache_data.clear()
                     st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
                     st.rerun()
+
+        with tab_bulk:
+            st.subheader("Bulk Create Entries (Select Weekdays or Multiple Date Ranges)")
+            bulk_mode = st.radio(
+                "Bulk Entry Mode:",
+                options=["By Weekdays in Date Range", "By Selecting Multiple Date Ranges"],
+                index=0,
+                key="bulk_mode"
+            )
+            with st.form("bulk_create_form", clear_on_submit=True):
+                bulk_type = st.selectbox("Type (Vehicle):", options=load_lookup_list(TYPE_LIST_PATH), key="bulk_type")
+                bulk_assigned = st.selectbox("Assigned to:", options=load_lookup_list(ASSIGNED_TO_LIST_PATH), key="bulk_assigned")
+                bulk_status = st.selectbox("Status:", ["Confirmed", "Reserved"], key="bulk_status")
+                bulk_drivers = st.multiselect("Authorized Drivers:", options=load_lookup_list(DRIVERS_LIST_PATH), key="bulk_drivers")
+                bulk_notes = st.text_area("Notes:", key="bulk_notes")
+
+                if bulk_mode == "By Weekdays in Date Range":
+                    bulk_start = st.date_input("Start Date:", value=datetime.today(), key="bulk_start")
+                    bulk_end = st.date_input("End Date:", value=datetime.today() + timedelta(days=7), key="bulk_end")
+                    weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                    weekday_indices = list(range(7))
+                    bulk_weekdays = st.multiselect(
+                        "Select Weekdays:",
+                        options=weekday_indices,
+                        format_func=lambda i: weekday_names[i],
+                        default=[3, 4],
+                        key="bulk_weekdays"
+                    )
+                else:
+                    # --- Multi date range picker using session state ---
+                    if "bulk_date_ranges" not in st.session_state:
+                        st.session_state.bulk_date_ranges = []
+                    st.write("Add one or more date ranges below:")
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    with col1:
+                        range_start = st.date_input("Range Start", value=datetime.today(), key="range_start")
+                    with col2:
+                        range_end = st.date_input("Range End", value=datetime.today() + timedelta(days=1), key="range_end")
+                    with col3:
+                        if st.form_submit_button("Add Range"):
+                            if range_end < range_start:
+                                st.warning("End date must be after start date.")
+                            else:
+                                st.session_state.bulk_date_ranges.append((range_start, range_end))
+                    for idx, (start, end) in enumerate(st.session_state.bulk_date_ranges):
+                        st.write(f"Range {idx+1}: {start} to {end}")
+                        if st.form_submit_button(f"Remove Range {idx+1}"):
+                            st.session_state.bulk_date_ranges.pop(idx)
+                            st.experimental_rerun()
+
+                submitted_bulk = st.form_submit_button("Add Bulk Entries and Push")
+                if submitted_bulk:
+                    if not bulk_type or not bulk_assigned:
+                        st.error("Please fill in all required fields.")
+                    elif bulk_mode == "By Weekdays in Date Range":
+                        if not bulk_start or not bulk_end or not bulk_weekdays:
+                            st.error("Please select a start date, end date, and at least one weekday.")
+                        elif bulk_end < bulk_start:
+                            st.error("End date must be after start date.")
+                        else:
+                            start_dt = pd.to_datetime(bulk_start)
+                            end_dt = pd.to_datetime(bulk_end)
+                            all_dates = pd.date_range(start=start_dt, end=end_dt, freq="D")
+                            # Only keep dates matching selected weekdays
+                            filtered_dates = [d for d in all_dates if d.weekday() in bulk_weekdays]
+                            if not filtered_dates:
+                                st.warning("No selected weekdays in the chosen range.")
+                            else:
+                                # --- Group consecutive dates into ranges ---
+                                grouped_ranges = []
+                                if filtered_dates:
+                                    current_start = filtered_dates[0]
+                                    current_end = filtered_dates[0]
+                                    for d in filtered_dates[1:]:
+                                        if (d - current_end).days == 1:
+                                            current_end = d
+                                        else:
+                                            grouped_ranges.append((current_start, current_end))
+                                            current_start = d
+                                            current_end = d
+                                    grouped_ranges.append((current_start, current_end))
+                                # --- Create one entry per consecutive range ---
+                                new_entries = []
+                                for start, end in grouped_ranges:
+                                    entry = {
+                                        "Type": bulk_type,
+                                        "Assigned to": bulk_assigned,
+                                        "Status": bulk_status,
+                                        "Checkout Date": start,
+                                        "Return Date": set_time_to_2359(end),
+                                        "Vehicle #": int(bulk_type.split("-")[0].strip()) if bulk_type and "-" in bulk_type else 0,
+                                        "Authorized Drivers": ", ".join(bulk_drivers),
+                                        "Notes": bulk_notes,
+                                    }
+                                    new_entries.append(entry)
+                                new_entries_df = pd.DataFrame(new_entries)
+                                new_entries_df['Checkout Date'] = pd.to_datetime(new_entries_df['Checkout Date'])
+                                new_entries_df['Return Date'] = new_entries_df['Return Date'].apply(set_time_to_2359)
+
+                                updated_df = pd.concat([st.session_state.edited_df, new_entries_df], ignore_index=True)
+                                updated_df["Unique ID"] = updated_df.index
+
+                                updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+
+                                commit_message = f"Bulk added {len(new_entries)} entries (grouped weekdays) via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+                                with st.spinner("Adding bulk entries and pushing to GitHub..."):
+                                    push_changes_to_github(commit_message)
+
+                                st.success(f"{len(new_entries)} entries added and pushed to GitHub!")
+                                st.cache_data.clear()
+                                st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
+                                st.session_state.bulk_date_ranges = []
+                                st.rerun()
+                    else:
+                        # Multiple date ranges mode
+                        if not st.session_state.bulk_date_ranges:
+                            st.error("Please add at least one date range.")
+                        else:
+                            all_dates = []
+                            for start, end in st.session_state.bulk_date_ranges:
+                                dr = pd.date_range(start=start, end=end, freq="D")
+                                all_dates.extend(dr)
+                            selected_dates = sorted(set(all_dates))
+                            if not selected_dates:
+                                st.warning("No dates in the selected ranges.")
+                            else:
+                                new_entries = []
+                                for d in selected_dates:
+                                    entry = {
+                                        "Type": bulk_type,
+                                        "Assigned to": bulk_assigned,
+                                        "Status": bulk_status,
+                                        "Checkout Date": d,
+                                        "Return Date": set_time_to_2359(d),
+                                        "Vehicle #": int(bulk_type.split("-")[0].strip()) if bulk_type and "-" in bulk_type else 0,
+                                        "Authorized Drivers": ", ".join(bulk_drivers),
+                                        "Notes": bulk_notes,
+                                    }
+                                    new_entries.append(entry)
+                                new_entries_df = pd.DataFrame(new_entries)
+                                new_entries_df['Checkout Date'] = pd.to_datetime(new_entries_df['Checkout Date'])
+                                new_entries_df['Return Date'] = new_entries_df['Return Date'].apply(set_time_to_2359)
+
+                                updated_df = pd.concat([st.session_state.edited_df, new_entries_df], ignore_index=True)
+                                updated_df["Unique ID"] = updated_df.index
+
+                                updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+
+                                commit_message = f"Bulk added {len(new_entries)} entries (multiple date ranges) via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+                                with st.spinner("Adding bulk entries and pushing to GitHub..."):
+                                    push_changes_to_github(commit_message)
+
+                                st.success(f"{len(new_entries)} entries added and pushed to GitHub!")
+                                st.cache_data.clear()
+                                st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
+                                st.session_state.bulk_date_ranges = []
+                                st.rerun()
 
         with tab2:
             # --- NEW: Single Delete Section ---
