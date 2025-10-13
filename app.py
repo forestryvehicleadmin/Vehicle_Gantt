@@ -788,9 +788,7 @@ def display_management_interface(df):
                                                                required=True),
                     "Checkout Date": st.column_config.DateColumn("Checkout", required=True),
                     "Return Date": st.column_config.DateColumn("Return", required=True),
-                    "Authorized Drivers": st.column_config.MultiSelectColumn("Authorized Drivers", options=load_lookup_list(DRIVERS_LIST_PATH),
-                        required=False,                        
-                    ),
+                    
                 },
                 key="data_editor"
             )
