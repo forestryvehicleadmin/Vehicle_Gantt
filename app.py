@@ -913,7 +913,7 @@ def main():
 
     # Generate and display the Gantt chart
     gantt_fig = generate_gantt_chart(df, view_mode, show_legend)
-    st.plotly_chart(gantt_fig, width='stretch')
+    st.plotly_chart(gantt_fig, config={}, use_container_width=True)
 
     vehicles()
     # Display the data table in an expander
