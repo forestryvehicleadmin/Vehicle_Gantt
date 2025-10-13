@@ -776,7 +776,7 @@ def display_management_interface(df):
             edited_filtered_df = st.data_editor(
                 df_to_display,
                 num_rows="dynamic",
-                use_container_width=True,
+                width='stretch',
                 column_config={
                     "Unique ID": st.column_config.NumberColumn(disabled=True),
                     "Type": st.column_config.SelectboxColumn("Type", options=load_lookup_list(TYPE_LIST_PATH),
@@ -913,12 +913,12 @@ def main():
 
     # Generate and display the Gantt chart
     gantt_fig = generate_gantt_chart(df, view_mode, show_legend)
-    st.plotly_chart(gantt_fig, use_container_width=True)
+    st.plotly_chart(gantt_fig, width='stretch')
 
     vehicles()
     # Display the data table in an expander
     with st.expander("View Full Data Table"):
-        st.dataframe(df)
+        st.dataframe(df, width='stretch')
 
     # Display the management interface
     display_management_interface(df)
