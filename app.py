@@ -49,7 +49,7 @@ else:
     # We are likely in a Streamlit Cloud environment where files are at the root.
     base_path = Path(".")  # Use the current directory
 
-EXCEL_FILE_PATH = base_path / "Vehicle_Checkout_List.xlsx"
+EXCEL_FILE_PATH = base_path / "Vehicle_Checkout_List.csv"  # <-- Change extension to .csv
 TYPE_LIST_PATH = base_path / "type_list.txt"
 ASSIGNED_TO_LIST_PATH = base_path / "assigned_to_list.txt"
 DRIVERS_LIST_PATH = base_path / "authorized_drivers_list.txt"
@@ -133,11 +133,11 @@ def push_changes_to_github(commit_message):
 
 # --- 3. DATA LOADING & CACHING ---
 def initialize_data_files_if_needed():
-    """Checks for the main Excel file and creates it if it doesn't exist."""
+    """Checks for the main CSV file and creates it if it doesn't exist."""
     if not EXCEL_FILE_PATH.exists():
         st.warning("Data file not found. Initializing a new one...")
 
-        # Define the schema for the new Excel file
+        # Define the schema for the new CSV file
         columns = [
             "Unique ID", "Type", "Vehicle #", "Assigned to", "Status",
             "Checkout Date", "Return Date", "Authorized Drivers", "Notes"
@@ -148,8 +148,8 @@ def initialize_data_files_if_needed():
         df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
         df['Return Date'] = pd.to_datetime(df['Return Date'])
 
-        # Create the Excel file and empty text files
-        df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+        # Create the CSV file and empty text files
+        df.to_csv(EXCEL_FILE_PATH, index=False)
         TYPE_LIST_PATH.touch()
         ASSIGNED_TO_LIST_PATH.touch()
         DRIVERS_LIST_PATH.touch()
@@ -189,9 +189,12 @@ def set_time_to_2359(dt):
 
 @st.cache_data
 def load_vehicle_data(file_path):
-    """Loads and processes the main vehicle data from the Excel file."""
+    """Loads and processes the main vehicle data from the CSV file."""
     try:
-        df = pd.read_excel(file_path, engine="openpyxl")
+        try:
+            df = pd.read_csv(file_path, parse_dates=["Checkout Date", "Return Date"], encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, parse_dates=["Checkout Date", "Return Date"], encoding="latin1")
 
         # Data cleaning and type conversion
         df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
@@ -208,7 +211,7 @@ def load_vehicle_data(file_path):
         df = df.sort_values(by="Unique ID", ascending=True)
         return df
     except Exception as e:
-        st.error(f"Error loading or processing Excel file: {e}")
+        st.error(f"Error loading or processing CSV file: {e}")
         return pd.DataFrame()  # Return empty dataframe on error
 
 # Function to read contents of type_list.txt and display line by line
@@ -480,8 +483,8 @@ def display_management_interface(df):
                     updated_df = pd.concat([st.session_state.edited_df, new_entry_df], ignore_index=True)
                     updated_df["Unique ID"] = updated_df.index  # Reset IDs
 
-                    # --- FIX: Save the updated dataframe to the excel file before pushing ---
-                    updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+                    # --- FIX: Save the updated dataframe to the csv file before pushing ---
+                    updated_df.to_csv(EXCEL_FILE_PATH, index=False)
 
                     commit_message = f"Added new entry via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
@@ -594,7 +597,7 @@ def display_management_interface(df):
                                 updated_df = pd.concat([st.session_state.edited_df, new_entries_df], ignore_index=True)
                                 updated_df["Unique ID"] = updated_df.index
 
-                                updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+                                updated_df.to_csv(EXCEL_FILE_PATH, index=False)
 
                                 commit_message = f"Bulk added {len(new_entries)} entries (grouped weekdays) via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
@@ -639,7 +642,7 @@ def display_management_interface(df):
                                 updated_df = pd.concat([st.session_state.edited_df, new_entries_df], ignore_index=True)
                                 updated_df["Unique ID"] = updated_df.index
 
-                                updated_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+                                updated_df.to_csv(EXCEL_FILE_PATH, index=False)
 
                                 commit_message = f"Bulk added {len(new_entries)} entries (multiple date ranges) via Streamlit app at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
@@ -686,7 +689,7 @@ def display_management_interface(df):
                         df_to_edit.reset_index(drop=True, inplace=True)
                         df_to_edit["Unique ID"] = df_to_edit.index
 
-                        df_to_edit.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+                        df_to_edit.to_csv(EXCEL_FILE_PATH, index=False)
 
                         commit_message = f"Deleted single entry: {entry_info}"
                         with st.spinner("Deleting entry and pushing to GitHub..."):
@@ -728,7 +731,7 @@ def display_management_interface(df):
                         df_to_edit.reset_index(drop=True, inplace=True)
                         df_to_edit["Unique ID"] = df_to_edit.index
 
-                        df_to_edit.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+                        df_to_edit.to_csv(EXCEL_FILE_PATH, index=False)
 
                         commit_message = f"Bulk deleted {rows_before - rows_after} entries before {start_dt.strftime('%m-%d-%Y')}"
                         with st.spinner("Deleting entries and pushing to GitHub..."):
@@ -826,8 +829,8 @@ def display_management_interface(df):
                     # --- Ensure Return Date is 23:59 for all rows ---
                     updated_full_df['Return Date'] = updated_full_df['Return Date'].apply(set_time_to_2359)
 
-                    # Save the fully merged and cleaned dataframe to Excel
-                    updated_full_df.to_excel(EXCEL_FILE_PATH, index=False, engine="openpyxl")
+                    # Save the fully merged and cleaned dataframe to CSV
+                    updated_full_df.to_csv(EXCEL_FILE_PATH, index=False)
 
                     # Push to Git
                     commit_message = f"Data update from Streamlit app by user at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
