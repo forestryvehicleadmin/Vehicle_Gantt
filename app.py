@@ -843,7 +843,7 @@ def display_management_interface(df):
                         updated_full_df = pd.concat([updated_full_df, added_rows], ignore_index=True)
 
                     # Final cleanup: sort and re-assign all unique IDs to ensure integrity
-                    updated_full_df = updated_full_df.sort_values(by "Unique ID").reset_index(drop=True)
+                    updated_full_df = updated_full_df.sort_values(by="Unique ID").reset_index(drop=True)
                     updated_full_df["Unique ID"] = updated_full_df.index
 
                     # --- Ensure Return Date is 23:59 for all rows ---
