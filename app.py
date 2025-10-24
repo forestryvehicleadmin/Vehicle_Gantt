@@ -417,8 +417,28 @@ def vehicles():
 
 def display_management_interface(df):
     """Renders the password-protected management UI."""
-    with st.expander("🔧 Manage Entries (VEM use only)"):
+    # --- Keep the Manage Entries expander open when the correct passcode was entered ---
+    # Initialize the session flag if needed
+    if "manage_expanded" not in st.session_state:
+        st.session_state.manage_expanded = False
+
+    # If the passcode stored in session state matches, ensure the expander stays open
+    if st.session_state.get("passcode_input") == VEM_PASSCODE:
+        st.session_state.manage_expanded = True
+
+    # Use the session-managed flag to control expander open/closed state
+    with st.expander("🔧 Manage Entries (VEM use only)", expanded=st.session_state.manage_expanded):
+        # Passcode input (keeps using the same key so session_state persists it)
         passcode = st.text_input("Enter Passcode:", type="password", key="passcode_input")
+
+        # Provide a quick way to lock/collapse the interface
+        col_lock, _ = st.columns([1, 9])
+        with col_lock:
+            if st.button("Lock Interface"):
+                st.session_state.manage_expanded = False
+                # clear stored passcode so access is revoked
+                st.session_state.passcode_input = ""
+                st.rerun()
 
         if passcode != VEM_PASSCODE:
             if passcode:  # Only show error if something was entered
@@ -820,7 +840,7 @@ def display_management_interface(df):
                         updated_full_df = pd.concat([updated_full_df, added_rows], ignore_index=True)
 
                     # Final cleanup: sort and re-assign all unique IDs to ensure integrity
-                    updated_full_df = updated_full_df.sort_values(by="Unique ID").reset_index(drop=True)
+                    updated_full_df = updated_full_df.sort_values(by "Unique ID").reset_index(drop=True)
                     updated_full_df["Unique ID"] = updated_full_df.index
 
                     # --- Ensure Return Date is 23:59 for all rows ---
