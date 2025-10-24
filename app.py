@@ -424,10 +424,19 @@ def display_management_interface(df):
     # Initialize the session flag if needed
     if "manage_expanded" not in st.session_state:
         st.session_state.manage_expanded = False
+    # Flag used to clear the passcode on the next rerun (avoids modifying a widget after it's instantiated)
+    if "manage_lock_rerun" not in st.session_state:
+        st.session_state.manage_lock_rerun = False
 
     # If the passcode stored in session state matches, ensure the expander stays open
     if st.session_state.get("passcode_input") == VEM_PASSCODE:
         st.session_state.manage_expanded = True
+
+    # If a previous action requested clearing the passcode on rerun, do it now BEFORE any widget is created
+    if st.session_state.get("manage_lock_rerun"):
+        # Clear the stored passcode so access is revoked and reset the flag
+        st.session_state["passcode_input"] = ""
+        st.session_state["manage_lock_rerun"] = False
 
     # Use the session-managed flag to control expander open/closed state
     with st.expander("🔧 Manage Entries (VEM use only)", expanded=st.session_state.manage_expanded):
@@ -438,9 +447,10 @@ def display_management_interface(df):
         col_lock, _ = st.columns([1, 9])
         with col_lock:
             if st.button("Lock Interface"):
+                # Collapse the expander immediately in this run
                 st.session_state.manage_expanded = False
-                # clear stored passcode so access is revoked
-                st.session_state.passcode_input = ""
+                # Request that the passcode be cleared on the next rerun (so we don't write to a widget after creation)
+                st.session_state.manage_lock_rerun = True
                 st.rerun()
 
         if passcode != VEM_PASSCODE:
