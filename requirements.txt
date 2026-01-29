@@ -1,5 +1,5 @@
+streamlit>=1.40.0
 pandas
 plotly
 openpyxl
-streamlit
-datetime
+
