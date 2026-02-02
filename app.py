@@ -281,7 +281,8 @@ def display_management_interface(df):
         st.success("Access Granted!")
         if 'edited_df' not in st.session_state: st.session_state.edited_df = df.copy()
 
-        tab1, tab_bulk, tab2, tab3 = st.tabs(["➕ Create", "📅 Bulk Create", "🗑️ Delete", "📝 Edit"])
+        # --- ADDED tab4 HERE ---
+        tab1, tab_bulk, tab2, tab3, tab4 = st.tabs(["➕ Create", "📅 Bulk Create", "🗑️ Delete", "📝 Edit", "📋 Manage Lists"])
 
         with tab1:
             st.subheader("Create a Single New Entry")
@@ -388,6 +389,43 @@ def display_management_interface(df):
                         push_changes_to_github(f"Edited ID {edit_idx}")
                         st.cache_data.clear()
                         st.rerun()
+
+        # --- NEW MANAGE LISTS TAB ---
+        with tab4:
+            st.subheader("Edit Application Dropdown Lists")
+            list_to_edit = st.selectbox("Select List to Update:", 
+                                      ["Assigned To", "Authorized Drivers", "Vehicle Types"])
+            
+            file_map = {
+                "Assigned To": ASSIGNED_TO_LIST_PATH,
+                "Authorized Drivers": DRIVERS_LIST_PATH,
+                "Vehicle Types": TYPE_LIST_PATH
+            }
+            
+            target_path = file_map[list_to_edit]
+            
+            # Load current content
+            current_content = ""
+            if target_path.exists():
+                with open(target_path, "r") as f:
+                    current_content = f.read()
+
+            with st.form("manage_lists_form"):
+                new_content = st.text_area("Edit names (one per line):", 
+                                         value=current_content, 
+                                         height=400)
+                
+                if st.form_submit_button("Save and Push Changes"):
+                    with open(target_path, "w") as f:
+                        f.write(new_content.strip())
+                    
+                    with st.spinner(f"Updating {list_to_edit}..."):
+                        push_changes_to_github(f"Updated {list_to_edit} dropdown list")
+                    
+                    st.cache_data.clear()
+                    st.success(f"{list_to_edit} updated successfully!")
+                    st.rerun()
+
     return df
 
 # --- 5. MAIN EXECUTION ---
