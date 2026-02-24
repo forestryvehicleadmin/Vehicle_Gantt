@@ -1,7 +1,4 @@
+streamlit
 pandas
 plotly
 openpyxl
-streamlit
-datetime
-os
-subprocess
