@@ -134,7 +134,6 @@ try:
     df['Return Date'] = pd.to_datetime(df['Return Date'])
     df["Unique ID"] = df.index  # Add a unique identifier for each row
     df['Notes'] = df['Notes'].astype(str)
-    df = df[~df['Type'].astype(str).str.contains('467|338', na=False, regex=True)]
 
     # Sort the DataFrame by the 'Type' column (ascending order)
     df = df.sort_values(by="Type", ascending=True)
