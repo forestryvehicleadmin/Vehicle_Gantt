@@ -1,4 +1,7 @@
-streamlit
-pandas==2.2.3
+pandas
 plotly
 openpyxl
+streamlit
+datetime
+os
+subprocess
