@@ -7,6 +7,5 @@
 331- 2024  Toyota Sienna Hybrid, White (8 seats)
 332 - 2009 Dodge Dakota, White (5 Seats)
 333 - 2017 Toyota Tacoma, Charcoal (5 Seats)
-338 - 2012 Nissan Titan, White (5 Seats)
 466 - 2007 Ford Expedition, Silver (7 Seats)
-467 - 2011 Chevy Silverado, Pearl (5 Seats)
+
