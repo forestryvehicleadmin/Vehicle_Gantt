@@ -250,7 +250,7 @@ fig.update_layout(
     title_font_size=20,
     margin=dict(l=0, r=0, t=40, b=0),  # Minimize margins
     showlegend=show_legend,  # Toggle legend based on the checkbox
-    xaxis_range=[start_range, end_range] 
+    xaxis_range=[start_range, end_range], 
     dragmode="pan"# Set initial zoom range
 )
 
