@@ -76,8 +76,8 @@ def push_changes_to_github():
         subprocess.run(["git", "commit", "-m", "Update Excel and TXT files from Streamlit app"], check=True)
 
         # Push changes to GitHub
-        subprocess.run(["git", "push", "origin", GITHUB_BRANCH], check=True)
-
+        # Change line 125 to this:
+subprocess.run(["git", "push", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], cwd=base_path, check=True)
         st.success("Changes successfully pushed to GitHub!")
     except subprocess.CalledProcessError as e:
         st.error(f"Failed to push changes: {e}")
