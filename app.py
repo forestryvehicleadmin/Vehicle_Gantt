@@ -1,413 +1,604 @@
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 from datetime import datetime, timedelta
 import subprocess
 import os
 from pathlib import Path
-import toml
+import shutil
 
-# --- 1. CONFIGURATION & CONSTANTS ---
+# Set the app to wide mode
 st.set_page_config(layout="wide", page_title="SoF Vehicle Assignments", page_icon="📊")
 
-def load_secrets():
-    """Prefer secrets.toml if present, else fallback to st.secrets"""
-    secrets_path = Path("secrets.toml")
-    if secrets_path.exists():
-        secrets = toml.load(secrets_path)
-        return {
-            "GITHUB_REPO": secrets["git"]["repo"],
-            "GITHUB_BRANCH": secrets["git"]["branch"],
-            "VEM_PASSCODE": secrets["auth"]["passcode"],
-            "DEPLOY_KEY": secrets["git"]["deploy_key"],
-        }
-    else:
-        return {
-            "GITHUB_REPO": st.secrets["git"]["repo"],
-            "GITHUB_BRANCH": st.secrets["git"]["branch"],
-            "VEM_PASSCODE": st.secrets["auth"]["passcode"],
-            "DEPLOY_KEY": st.secrets["git"]["deploy_key"],
-        }
+# GitHub repository details
+GITHUB_REPO = "forestryvehicleadmin/Vehicle_Gantt" # Replace with your repo name
+GITHUB_BRANCH = "master"  # Replace with your branch name
+FILE_PATH = "Vehicle_Checkout_List.xlsx"  # Relative path to the Excel file in the repo
 
-try:
-    secrets = load_secrets()
-    GITHUB_REPO = secrets["GITHUB_REPO"]
-    GITHUB_BRANCH = secrets["GITHUB_BRANCH"]
-    VEM_PASSCODE = secrets["VEM_PASSCODE"]
-    DEPLOY_KEY = secrets["DEPLOY_KEY"]
-except (KeyError, FileNotFoundError):
-    st.error("Required secrets (repo, branch, passcode, deploy_key) are not set. Please configure them.")
-    st.stop()
+# Set Git author identity
+subprocess.run(["git", "config", "--global", "user.name", "Jacob Shelly"], check=True)
+subprocess.run(["git", "config", "--global", "user.email", "jcs595@nau.edu"], check=True)
 
-# Use Path objects for cleaner file paths
-REPO_DIR = Path("repo")
-if REPO_DIR.is_dir():
-    base_path = REPO_DIR
-else:
-    base_path = Path(".") 
+# Path for the SSH private key and git configuration
+DEPLOY_KEY_PATH = Path("~/.ssh/github_deploy_key").expanduser()
+SSH_CONFIG_PATH = Path("~/.ssh/config").expanduser()
 
-EXCEL_FILE_PATH = base_path / "Vehicle_Checkout_List.csv"
-TYPE_LIST_PATH = base_path / "type_list.txt"
-ASSIGNED_TO_LIST_PATH = base_path / "assigned_to_list.txt"
-DRIVERS_LIST_PATH = base_path / "authorized_drivers_list.txt"
+# Ensure private key is available for SSH
+if "DEPLOY_KEY" in st.secrets:
+    DEPLOY_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(DEPLOY_KEY_PATH, "w") as f:
+        f.write(st.secrets["DEPLOY_KEY"])
+    os.chmod(DEPLOY_KEY_PATH, 0o600)  # Restrict permissions
 
-GIT_SSH_URL = f"git@github.com:{GITHUB_REPO}.git"
+    # Configure SSH for GitHub
+    with open(SSH_CONFIG_PATH, "w") as f:
+        f.write(f"""
+        Host github.com
+            HostName github.com
+            User git
+            IdentityFile {DEPLOY_KEY_PATH}
+            StrictHostKeyChecking no
+        """)
+    os.chmod(SSH_CONFIG_PATH, 0o600)  # Restrict permissions
+    
+    # Force Git to use the SSH URL so your key actually works
+    subprocess.run(["git", "remote", "set-url", "origin", f"git@github.com:{GITHUB_REPO}.git"], check=False)
 
-# --- 2. GIT & SSH SETUP ---
-def setup_ssh_and_git():
-    """Configures SSH with the deploy key and sets up the Git remote."""
-    ssh_dir = Path("~/.ssh").expanduser()
-    ssh_dir.mkdir(exist_ok=True)
-
-    deploy_key_path = ssh_dir / "github_deploy_key"
-    config_path = ssh_dir / "config"
-
-    # Write the deploy key and set permissions
-    if not deploy_key_path.exists():
-        deploy_key_path.write_text(DEPLOY_KEY)
-        os.chmod(deploy_key_path, 0o600)
-
-    # Write the SSH config and set permissions
-    config_text = f"""
-    Host github.com
-        HostName github.com
-        User git
-        IdentityFile {deploy_key_path}
-        StrictHostKeyChecking no
-    """
-    config_path.write_text(config_text)
-    os.chmod(config_path, 0o600)
-
-    # Set Git user details
-    subprocess.run(["git", "config", "--global", "user.name", "forestryvehicleadmin"], check=False)
-    subprocess.run(["git", "config", "--global", "user.email", "forestryvehicleadmin@nau.edu"], check=False)
-
-
-def clone_or_pull_repo():
-    """Clones the repo if it doesn't exist, otherwise pulls the latest changes."""
-    if not REPO_DIR.is_dir():
-        return 
-
-    st.write("Pulling latest changes from repository...")
+def push_changes_to_github():
+    """Push changes to GitHub."""
+    #st.write("Pushing changes to GitHub...")
     try:
-        subprocess.run(["git", "fetch", "origin", GITHUB_BRANCH], cwd=REPO_DIR, check=True, capture_output=True, text=True)
-        subprocess.run(["git", "reset", "--hard", f"origin/{GITHUB_BRANCH}"], cwd=REPO_DIR, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
-        st.error(f"Failed to pull changes. Git Error: {e.stderr}")
-        st.stop()
+        # Check for unstaged changes
+        result = subprocess.run(["git", "status", "--porcelain"], stdout=subprocess.PIPE)
+        if result.stdout.strip():
+            #st.warning("Unstaged changes detected. Stashing them temporarily.")
+            # Stash unstaged changes
+            subprocess.run(["git", "stash", "--include-untracked"], check=True)
 
+        # Pull latest changes to avoid conflicts
+        subprocess.run(["git", "pull", "origin", GITHUB_BRANCH, "--rebase"], check=True)
 
-def push_changes_to_github(commit_message):
-    """Commits all changes and pushes them to the GitHub repository."""
-    try:
-        subprocess.run(["git", "add", "-A"], cwd=base_path, check=True)
-        status_result = subprocess.run(["git", "status", "--porcelain"], cwd=base_path, capture_output=True, text=True)
-        
-        if not status_result.stdout:
-            st.info("No changes to commit.")
+        # Restore stashed changes
+        if result.stdout.strip():
+            #st.info("Restoring stashed changes...")
+            subprocess.run(["git", "stash", "pop"], check=True)
+
+        # Add all changes to the Git index
+        subprocess.run(["git", "add", "-A"], check=True)
+
+        # Check for changes in the index
+        diff_result = subprocess.run(["git", "diff", "--cached"], stdout=subprocess.PIPE)
+        if not diff_result.stdout.strip():
+            st.info("No changes detected. Nothing to commit.")
             return
 
-        subprocess.run(["git", "commit", "-m", commit_message], cwd=base_path, check=True)
-        subprocess.run(["git", "push", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], cwd=base_path, check=True)
+        # Commit changes
+        subprocess.run(["git", "commit", "-m", "Update Excel and TXT files from Streamlit app"], check=True)
+
+        # Push changes to GitHub
+        subprocess.run(["git", "push", "origin", GITHUB_BRANCH], check=True)
+
         st.success("Changes successfully pushed to GitHub!")
-
     except subprocess.CalledProcessError as e:
-        st.error(f"Failed to push changes. Git Error: {e.stderr}")
-        st.warning("Your changes have been saved locally but not pushed to GitHub. Please try again later.")
+        st.error(f"Failed to push changes: {e}")
+    finally:
+        # Optional cleanup of stash in case of errors
+        subprocess.run(["git", "stash", "drop"], check=False, stderr=subprocess.DEVNULL)
 
+# Path to the Excel file
+file_path = r"Vehicle_Checkout_List.xlsx"
 
-# --- 3. DATA LOADING & CACHING ---
-def initialize_data_files_if_needed():
-    """Checks for the main CSV file and creates it if it doesn't exist."""
-    if not EXCEL_FILE_PATH.exists():
-        st.warning("Data file not found. Initializing a new one...")
-        columns = ["Unique ID", "Type", "Vehicle #", "Assigned to", "Status", "Checkout Date", "Return Date", "Authorized Drivers", "Notes"]
-        df = pd.DataFrame(columns=columns)
-        df.to_csv(EXCEL_FILE_PATH, index=False)
-        TYPE_LIST_PATH.touch()
-        ASSIGNED_TO_LIST_PATH.touch()
-        DRIVERS_LIST_PATH.touch()
+# Check if the popup has been displayed already
+if "popup_shown" not in st.session_state:
+    st.session_state.popup_shown = False  # Initialize the state
 
-        if REPO_DIR.is_dir():
-            with st.spinner("Pushing initial data files to GitHub..."):
-                push_changes_to_github("Initialize data files")
-            st.rerun()
+# Display the popup if it hasn't been shown yet
+if not st.session_state.popup_shown:
+    with st.expander("🚀 Welcome to SoF Vehicle Assignments! (Click to Dismiss)"):
+        st.markdown("""
+        ## Key Tips for Using the App:
+        - **Legend Toggle**: Use the "Show Legend" checkbox above the chart to toggle the legend visibility.
+        - **Navigate chart**: Tools for navigating schedule are in pop up to top right of graph. 
+        - **Phone Use**: Drag finger along numbers on side of chart to scroll. 
+                
+        """)
+        st.button("Close Tips", on_click=lambda: setattr(st.session_state, "popup_shown", True))
 
-@st.cache_data
-def load_lookup_list(file_path):
-    """Loads a list from a text file."""
-    if not file_path.exists():
-        return []
-    with open(file_path, "r") as f:
-        return sorted([line.strip() for line in f if line.strip()])
+# Streamlit app
+st.title("SoF Vehicle Assignments")
 
-def set_time_to_2359(dt):
-    """Sets the time of a datetime or date object to 23:59."""
-    if pd.isnull(dt): return pd.NaT
-    if isinstance(dt, str):
-        try: dt = pd.to_datetime(dt)
-        except: return pd.NaT
-    return pd.to_datetime(dt).replace(hour=23, minute=59, second=0, microsecond=0)
+# Load the data
+try:
+    df = pd.read_excel(file_path, engine="openpyxl")
+    df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
+    df['Return Date'] = pd.to_datetime(df['Return Date'])
+    df["Unique ID"] = df.index  # Add a unique identifier for each row
+    df['Notes'] = df['Notes'].astype(str)
 
-@st.cache_data
-def load_vehicle_data(file_path):
-    """Loads and processes the main vehicle data from the CSV file."""
-    try:
-        try:
-            df = pd.read_csv(file_path, parse_dates=["Checkout Date", "Return Date"], encoding="utf-8-sig")
-        except UnicodeDecodeError:
-            df = pd.read_csv(file_path, parse_dates=["Checkout Date", "Return Date"], encoding="latin1")
+    # Sort the DataFrame by the 'Type' column (ascending order)
+    df = df.sort_values(by="Type", ascending=True)
+except Exception as e:
+    st.error(f"Error loading Excel file: {e}")
+    st.stop()
 
-        df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
-        df['Return Date'] = pd.to_datetime(df['Return Date'])
-        df['Return Date'] = df['Return Date'].apply(set_time_to_2359)
-        
-        # --- CLEAN STRING COLUMNS TO FIX SORTING ERRORS ---
-        df['Notes'] = df['Notes'].astype(str).fillna('')
-        df['Authorized Drivers'] = df['Authorized Drivers'].astype(str).fillna('')
-        df['Type'] = df['Type'].astype(str).fillna('')  # <--- THIS FIXES YOUR ERROR
-        # --------------------------------------------------
+# Full-screen Gantt chart
+#st.title("Interactive Vehicle Assignment Gantt Chart")
+st.markdown("###")
 
-        if "Unique ID" not in df.columns or df["Unique ID"].isnull().any():
-            df["Unique ID"] = range(len(df))
+# Add a button to toggle the legend
+show_legend = st.checkbox("Show Legend", value=False)
 
-        df = df.sort_values(by="Unique ID", ascending=True)
-        return df
-    except Exception as e:
-        st.error(f"Error loading or processing CSV file: {e}")
-        return pd.DataFrame()
+# Calculate dynamic zoom range: past 2 weeks and next 4 weeks
+today = datetime.today()
+start_range = today - timedelta(weeks=2)  # 2 weeks ago
+end_range = today + timedelta(weeks=4)    # 4 weeks from now
+week_range = end_range + timedelta(weeks=10)   # grids timeframe
+# Create the Gantt chart
+fig = px.timeline(
+    df,
+    x_start="Checkout Date",
+    x_end="Return Date",
+    y="Type",
+    color="Assigned to",
+    title="Vehicle Assignments",
+    hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"],
+    #labels={"Assigned to": "Vehicle"}
+)
+# Ensure the Y-axis order is preserved
+unique_types = df['Type'].unique()
+fig.update_yaxes(
+    categoryorder="array",
+    categoryarray=unique_types
+)
 
-def load_type_list(file_path):
-    try:
-        with open(file_path, "r") as file:
-            lines = file.readlines()
-            return "\n".join(line.strip() for line in lines if line.strip())
-    except FileNotFoundError:
-        return "File not found."
+# Add semi-transparent overlays for 'Reserved' bars
+for _, row in df.iterrows():
+    if row['Status'] == 'Reserved':
+        fig.add_shape(
+            type="rect",
+            x0=row['Checkout Date'],
+            x1=row['Return Date'],
+            y0=unique_types.tolist().index(row['Type']) - 0.4,
+            y1=unique_types.tolist().index(row['Type']) + 0.4,
+            xref="x",
+            yref="y",
+            fillcolor="rgba(255,0,0,0.1)",  # Red with 10% opacity
+            line=dict(width=0),  # No border for reserved
+            layer="below"  # Ensure Reserved is drawn under Confirmed
+        )
 
-# --- 4. UI COMPONENTS ---
-def display_welcome_message():
-    if "popup_shown" not in st.session_state:
-        st.session_state.popup_shown = False
+# Adjust bar opacity for the timeline
+for trace in fig.data:
+    trace.opacity = 0.9  # Set all timeline bars to 90% opacity
 
-    if not st.session_state.popup_shown:
-        with st.expander("🚀 Welcome to SoF Vehicle Assignments! (Click to Dismiss)", expanded=True):
-            st.markdown("""
-            - **Legend Toggle**: Use the "Show Legend" checkbox to toggle legend visibility.
-            - **Navigate Chart**: Use the tools in the top-right of the chart to pan and zoom.
-            - **Phone Use**: Drag your finger along the vehicle types on the left to scroll vertically.
-            """)
-            if st.button("Close Tips"):
-                st.session_state.popup_shown = True
-                st.rerun()
+# Sort the y-axis by ascending order of 'Type'
+fig.update_yaxes(
+    categoryorder="array",
+    categoryarray=df["Type"].unique(),  # Use the sorted 'Type' column
+    ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
+    tickvals=df["Type"],
+    title=None,  # Hide Y-axis title
+)
 
-@st.cache_data(ttl=3600)
-def generate_gantt_chart(_df, view_mode, show_legend):
-    if _df.empty:
-        st.info("No vehicle assignments to display.")
-        return go.Figure()
+# Limit the y-axis labels to three characters
+fig.update_yaxes(
+    ticktext=[label[:3] for label in df["Type"]],  # Truncated labels
+    tickvals=df["Type"],
+    title=None,  # Hide Y-axis title
+)
 
-    df = _df.copy()
-    today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
-    start_range = today - timedelta(weeks=2)
-    end_range = today + timedelta(weeks=4)
-    week_range = end_range + timedelta(weeks=10)
+# Add today's date as a vertical red line
+fig.add_shape(
+    type="line",
+    x0=today,
+    y0=0,
+    x1=today,
+    y1=1,
+    xref="x",
+    yref="paper",
+    line=dict(color="red", width=2, dash="dot"),
+    name="Today"
+)
 
-    xaxis_range = [today - timedelta(days=2), today + timedelta(days=5)] if view_mode == "Mobile" else [start_range, end_range]
+# Add weekly and daily grid lines
+current_date = start_range
+while current_date <= week_range:
+    # Add weekly grid lines (thicker lines)
+    if current_date.weekday() == 0:  # Monday
+        fig.add_shape(
+            type="line",
+            x0=current_date,
+            y0=0,
+            x1=current_date,
+            y1=1,
+            xref="x",
+            yref="paper",
+            line=dict(color="gray", width=1.5, dash="solid"),
+            layer="below",
+        )
+    # Add daily grid lines (thinner lines)
+    fig.add_shape(
+        type="line",
+        x0=current_date,
+        y0=0,
+        x1=current_date,
+        y1=1,
+        xref="x",
+        yref="paper",
+        line=dict(color="lightgray", width=0.5, dash="dot"),
+        layer="below",
+    )
+    current_date += timedelta(days=1)
 
-    df["Bar Label"] = df.apply(lambda row: f"{row['Vehicle #']} - {row['Assigned to']}" if row['Status'] != 'Reserved' else "", axis=1)
-
-    custom_colors = [
-        "#353850", "#3A565A", "#3E654C", "#557042", "#7C7246", "#884C49",
-        "#944C7F", "#7B4FA1", "#503538", "#5A3A56", "#4C3E65", "#425570",
-        "#467C72", "#49884C", "#80944C", "#A1794F", "#395035", "#575A3A",
-        "#654B3E", "#704255", "#72467C", "#4C4988", "#4C8094", "#4FA179"
-    ]
-    assigned_to_names = df["Assigned to"].unique()
-    color_map = {name: custom_colors[i % len(custom_colors)] for i, name in enumerate(assigned_to_names)}
-
-    fig = px.timeline(
-        df, x_start="Checkout Date", x_end="Return Date", y="Type", color="Assigned to",
-        color_discrete_map=color_map, title="Vehicle Assignments",
-        hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date", "Authorized Drivers", "Notes"],
-        text="Bar Label", pattern_shape="Status",
+# Add horizontal grid lines only for used rows
+unique_y_values = df["Type"].unique()
+for idx, label in enumerate(unique_y_values):
+    fig.add_shape(
+        type="line",
+        x0=start_range,
+        y0=idx - 0.5,  # Align with the row's center
+        x1=week_range,
+        y1=idx - 0.5,
+        xref="x",
+        yref="y",
+        line=dict(color="lightgray", width=1, dash="dot"),
     )
 
-    fig.data = tuple(sorted(fig.data, key=lambda t: 0 if "Reserved" in t.name else 1))
-    fig.update_traces(textposition="inside", insidetextanchor="start", textfont=dict(size=12, color="white", family="Arial Black"), opacity=0.9)
-    
-    unique_types = df['Type'].unique()
-    fig.update_yaxes(categoryorder="array", categoryarray=unique_types, title=None)
+# Update layout for dynamic zoom and better visualization
+fig.update_layout(
+    height=800,  # Adjust chart height to fit full screen
+    title_font_size=20,
+    margin=dict(l=0, r=0, t=40, b=0),  # Minimize margins
+    showlegend=show_legend,  # Toggle legend based on the checkbox
+    xaxis_range=[start_range, end_range]  # Set initial zoom range
+)
 
-    today_label = today + pd.Timedelta(hours=12)
-    fig.add_vline(x=today_label, line_width=2, line_dash="dash", line_color="red", layer="below")
-    fig.add_annotation(x=today_label, y=1, yref="paper", showarrow=False, text="Today", bgcolor="red", font=dict(color="white"))
+# Display the Gantt chart full screen
+st.plotly_chart(fig, use_container_width=True)
 
-    # Grid Lines
-    current_date = start_range
-    while current_date <= week_range:
-        current_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        if current_date.weekday() == 0:
-            fig.add_shape(type="line", x0=current_date, y0=0, x1=current_date, y1=1, xref="x", yref="paper", line=dict(color="gray", width=1.5), layer="below")
-        fig.add_shape(type="line", x0=current_date, y0=0, x1=current_date, y1=1, xref="x", yref="paper", line=dict(color="lightgray", width=0.5, dash="dot"), layer="below")
-        current_date += timedelta(days=1)
+# Add a dropdown to display the DataFrame
+with st.expander("View and Filter Data Table"):
+    st.subheader("Filter and View Data Table")
+    columns = st.multiselect("Select Columns to Display:", df.columns, default=df.columns.tolist())
+    st.dataframe(df[columns])  # Display the selected columns
 
-    for idx, label in enumerate(unique_types):
-        fig.add_shape(type="line", x0=start_range, y0=idx - 0.5, x1=week_range, y1=idx - 0.5, xref="x", yref="y", line=dict(color="lightgray", width=1, dash="dot"))
+# Secure edit/delete and create entry section
+with st.expander("Manage Entries (Create, Edit, Delete) VEM use only."):
 
-    fig.update_layout(height=800, margin=dict(l=10, r=10, t=50, b=20), showlegend=show_legend, xaxis_range=xaxis_range, yaxis_fixedrange=True, dragmode="pan")
-    return fig
+    # Passcode validation
+    passcode = st.text_input("Enter the 4-digit passcode:", type="password")
+    if passcode == "1234":  # Replace with your secure passcode
+        st.success("Access granted!")
 
-def display_management_interface(df):
-    if "manage_expanded" not in st.session_state: st.session_state.manage_expanded = False
-    if "manage_lock_rerun" not in st.session_state: st.session_state.manage_lock_rerun = False
-    if st.session_state.get("passcode_input") == VEM_PASSCODE: st.session_state.manage_expanded = True
-    if st.session_state.get("manage_lock_rerun"):
-        st.session_state["passcode_input"] = ""
-        st.session_state["manage_lock_rerun"] = False
+        # **1. Create a New Entry**
+        # Function to load and parse the type list from the TXT file
+        def load_type_list(file_path):
+            try:
+                with open(file_path, "r") as file:
+                    lines = file.readlines()
+                    return [line.strip() for line in lines if line.strip()]  # Remove empty lines
+            except FileNotFoundError:
+                return []
 
-    with st.expander("🔧 Manage Entries (VEM use only)", expanded=st.session_state.manage_expanded):
-        passcode = st.text_input("Enter Passcode:", type="password", key="passcode_input")
-        if st.button("Lock Interface"):
-            st.session_state.manage_expanded = False
-            st.session_state.manage_lock_rerun = True
-            st.rerun()
 
-        if passcode != VEM_PASSCODE:
-            if passcode: st.error("Incorrect passcode.")
-            return df
+        # Function to load the authorized drivers from the TXT file
+        def load_drivers_list(file_path):
+            try:
+                with open(file_path, "r") as file:
+                    return [line.strip() for line in file if line.strip()]  # Remove empty lines
+            except FileNotFoundError:
+                return []
 
-        st.success("Access Granted!")
-        if 'edited_df' not in st.session_state: st.session_state.edited_df = df.copy()
 
-        tab1, tab_bulk, tab2, tab3 = st.tabs(["➕ Create", "📅 Bulk Create", "🗑️ Delete", "📝 Edit"])
+        # Function to load the "Assigned to" list from the TXT file
+        def load_assigned_to_list(file_path):
+            try:
+                with open(file_path, "r") as file:
+                    return [line.strip() for line in file if line.strip()]  # Remove empty lines
+            except FileNotFoundError:
+                return []
 
-        with tab1:
-            st.subheader("Create a Single New Entry")
-            with st.form("new_entry_form", clear_on_submit=True):
-                new_entry = {}
-                new_entry["Type"] = st.selectbox("Type:", load_lookup_list(TYPE_LIST_PATH))
-                new_entry["Assigned to"] = st.selectbox("Assigned to:", load_lookup_list(ASSIGNED_TO_LIST_PATH))
-                new_entry["Status"] = st.selectbox("Status:", ["Confirmed", "Reserved"])
-                new_entry["Checkout Date"] = st.date_input("Checkout:", datetime.today())
-                new_entry["Return Date"] = set_time_to_2359(st.date_input("Return:", datetime.today() + timedelta(days=1)))
-                new_entry["Authorized Drivers"] = st.multiselect("Drivers:", load_lookup_list(DRIVERS_LIST_PATH))
-                new_entry["Notes"] = st.text_area("Notes:")
-                
-                try: new_entry["Vehicle #"] = int(new_entry["Type"].split("-")[0].strip()) if new_entry["Type"] else 0
-                except: new_entry["Vehicle #"] = 0
 
-                if st.form_submit_button("Add New Entry"):
-                    if not new_entry["Type"] or not new_entry["Assigned to"]:
-                         st.error("Type and Assigned To are required.")
-                    else:
-                        new_entry["Authorized Drivers"] = ", ".join(new_entry["Authorized Drivers"])
-                        new_row = pd.DataFrame([new_entry])
-                        new_row['Checkout Date'] = pd.to_datetime(new_row['Checkout Date'])
-                        new_row['Return Date'] = pd.to_datetime(new_row['Return Date'])
-                        
-                        updated_df = pd.concat([st.session_state.edited_df, new_row], ignore_index=True)
-                        updated_df["Unique ID"] = updated_df.index
-                        updated_df.to_csv(EXCEL_FILE_PATH, index=False)
-                        
-                        with st.spinner("Pushing to GitHub..."):
-                            push_changes_to_github("Added new entry")
-                        st.cache_data.clear()
-                        st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
-                        st.rerun()
+        # Load the type list from the uploaded file
+        type_list = load_type_list("type_list.txt")
+        # Load the authorized drivers list
+        authorized_drivers_list = load_drivers_list("authorized_drivers_list.txt")
+        # Load the assigned to list
+        assigned_to_list = load_assigned_to_list("assigned_to_list.txt")
 
-        with tab_bulk:
-            st.subheader("Bulk Create Entries")
-            bulk_mode = st.radio("Mode:", ["Weekdays in Range", "Multiple Date Ranges"])
-            with st.form("bulk_form"):
-                b_type = st.selectbox("Type:", load_lookup_list(TYPE_LIST_PATH))
-                b_assign = st.selectbox("Assigned to:", load_lookup_list(ASSIGNED_TO_LIST_PATH))
-                b_stat = st.selectbox("Status:", ["Confirmed", "Reserved"])
-                b_driv = st.multiselect("Drivers:", load_lookup_list(DRIVERS_LIST_PATH))
-                b_note = st.text_area("Notes:")
+        st.subheader("Create New Entry")
+        new_entry = {}
 
-                if bulk_mode == "Weekdays in Range":
-                    b_start = st.date_input("Start:", datetime.today())
-                    b_end = st.date_input("End:", datetime.today() + timedelta(days=7))
-                    b_days = st.multiselect("Days:", list(range(7)), format_func=lambda x: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][x], default=[0,1,2,3,4])
+        # Dynamic dropdown options for Assigned to, Type, and Authorized Drivers
+        assigned_to_options = df["Assigned to"].dropna().unique().tolist()
+        type_options = df["Type"].dropna().unique().tolist()  # Type field options
+        driver_options = df["Authorized Drivers"].dropna().str.split(",").explode().unique().tolist()
+
+        # "Assigned to" field with an option to add a new name
+        new_entry["Assigned to"] = st.selectbox(
+            "Assigned to:", options=[""] + assigned_to_list
+        )
+
+
+        def save_assigned_to_list(file_path, data):
+            """Save the assigned to list to a file."""
+            with open(file_path, "w") as file:
+                for item in data:
+                    file.write(f"{item}\n")
+
+
+        # Function to handle new "Assigned To" addition
+        def add_new_assigned_to():
+            # Access the global input value
+            new_assigned_to = st.session_state["new_assigned_to"]
+            if new_assigned_to and new_assigned_to not in assigned_to_list:
+                assigned_to_list.append(new_assigned_to)
+
+                # Save the updated list to the file
+                save_assigned_to_list("assigned_to_list.txt", assigned_to_list)
+
+                # Display success message and updated list
+                st.success(f"'Assigned To' '{new_assigned_to}' successfully added.")
+
+                # Push changes to GitHub
+                push_changes_to_github()
+
+                # Clear the input field
+                st.session_state["new_assigned_to"] = ""  # Reset the text input
+            elif not new_assigned_to:
+                st.warning("Input cannot be empty.")
+            else:
+                st.warning("This entry already exists in the list.")
+
+
+        # Text input with `on_change` to trigger the callback
+        st.text_input(
+            "Enter new 'Assigned To':",
+            key="new_assigned_to",  # Store the input in session state
+            on_change=add_new_assigned_to,
+        )
+
+        # "Type" field (dropdown for vehicle types)
+        new_entry["Type"] = st.selectbox("Type (Vehicle):", options=[""] + type_list)
+
+        # Automatically populate the Vehicle # based on the first 3 characters of Type
+        if new_entry["Type"]:
+            try:
+                new_entry["Vehicle #"] = int(new_entry["Type"].split("-")[0].strip())  # Extract first part as integer
+            except ValueError:
+                st.error("The Type must start with a numeric value for Vehicle #.")
+                new_entry["Vehicle #"] = None
+        else:
+            new_entry["Vehicle #"] = None
+
+        # "Status" field as a Boolean dropdown
+        new_entry["Status"] = st.selectbox("Status:", options=["Confirmed", "Reserved"])
+
+        new_entry["Authorized Drivers"] = st.multiselect(
+            "Authorized Drivers (May select multiple):",
+            options=authorized_drivers_list,
+            default=[]
+        )
+
+
+        def save_drivers_list(file_path, data):
+            """Save the authorized drivers list to a file."""
+            with open(file_path, "w") as file:
+                for item in data:
+                    file.write(f"{item}\n")
+
+
+        # Function to handle new authorized driver addition
+        def add_new_driver():
+            # Access the global input value
+            new_driver = st.session_state["new_driver"]
+            if new_driver and new_driver not in authorized_drivers_list:
+                authorized_drivers_list.append(new_driver)
+
+                # Save the updated list to the file
+                save_drivers_list("authorized_drivers_list.txt", authorized_drivers_list)
+
+                # Display success message and updated list
+                st.success(f"Authorized driver '{new_driver}' successfully added.")
+
+                # Push changes to GitHub
+                push_changes_to_github()
+
+                # Clear the input field
+                st.session_state["new_driver"] = ""  # Reset the text input
+            elif not new_driver:
+                st.warning("Input cannot be empty.")
+            else:
+                st.warning("This driver already exists in the list.")
+
+
+        # Text input with `on_change` to trigger the callback
+        st.text_input(
+            "Enter new Authorized Driver:",
+            key="new_driver",  # Store the input in session state
+            on_change=add_new_driver,
+        )
+
+        # Fields for other columns
+        for column in df.columns:  
+            if column == "Unique ID":
+                continue # Safely skip Unique ID
+            if column not in ["Assigned to", "Type", "Vehicle #", "Status",
+                              "Authorized Drivers"]:  # Already handled above
+                if pd.api.types.is_datetime64_any_dtype(df[column]):
+                    new_entry[column] = st.date_input(f"{column}:", value=datetime.today())
+                elif pd.api.types.is_numeric_dtype(df[column]):
+                    new_entry[column] = st.number_input(f"{column}:", value=0)
                 else:
-                    st.write("Functionality for multiple ranges is simplified here for brevity.")
-                    b_start, b_end, b_days = None, None, []
+                    new_entry[column] = st.text_input(f"{column}:")
 
-                if st.form_submit_button("Add Bulk"):
-                    dates = pd.date_range(b_start, b_end)
-                    final_dates = [d for d in dates if d.weekday() in b_days]
-                    if not final_dates: st.error("No dates selected.")
-                    else:
-                        entries = []
-                        for d in final_dates:
-                            entries.append({
-                                "Type": b_type, "Assigned to": b_assign, "Status": b_stat,
-                                "Checkout Date": d, "Return Date": set_time_to_2359(d),
-                                "Vehicle #": int(b_type.split("-")[0]) if "-" in b_type else 0,
-                                "Authorized Drivers": ", ".join(b_driv), "Notes": b_note
-                            })
-                        updated_df = pd.concat([st.session_state.edited_df, pd.DataFrame(entries)], ignore_index=True)
-                        updated_df["Unique ID"] = updated_df.index
-                        updated_df.to_csv(EXCEL_FILE_PATH, index=False)
-                        with st.spinner("Pushing Bulk..."): push_changes_to_github("Bulk added")
-                        st.cache_data.clear()
-                        st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
-                        st.rerun()
+        # Add entry button
+        if st.button("Add Entry"):
+            try:
+                if not new_entry["Assigned to"] or not new_entry["Type"]:
+                    st.error("Error: 'Assigned to' and 'Type' cannot be empty.")
+                elif new_entry["Checkout Date"] > new_entry["Return Date"]:
+                    st.error("Error: 'Checkout Date' cannot be after 'Return Date'.")
+                elif new_entry["Vehicle #"] is None:
+                    st.error("Error: Vehicle # could not be derived. Ensure Type starts with a numeric value.")
+                else:
+                    # Handle the Authorized Drivers as a comma-separated string
+                    new_entry["Authorized Drivers"] = ", ".join(new_entry["Authorized Drivers"])
 
-        with tab2:
-            st.subheader("Delete Entry")
-            with st.form("delete_form"):
-                options = st.session_state.edited_df.apply(lambda x: f"{x['Unique ID']} | {x['Assigned to']} | {x['Checkout Date'].strftime('%m/%d')}", axis=1)
-                del_idx = st.selectbox("Select Entry:", st.session_state.edited_df.index, format_func=lambda x: options[x] if x in options else "Unknown")
-                
-                if st.form_submit_button("Delete"):
-                    updated_df = st.session_state.edited_df.drop(del_idx).reset_index(drop=True)
-                    updated_df["Unique ID"] = updated_df.index
-                    updated_df.to_csv(EXCEL_FILE_PATH, index=False)
-                    with st.spinner("Deleting..."): push_changes_to_github(f"Deleted ID {del_idx}")
-                    st.cache_data.clear()
-                    st.session_state.edited_df = load_vehicle_data(EXCEL_FILE_PATH)
-                    st.rerun()
+                    # Append the new entry to the DataFrame
+                    new_row_df = pd.DataFrame([new_entry])
+                    df = pd.concat([df, new_row_df], ignore_index=True)
+                    df.reset_index(drop=True, inplace=True)  # Reset index
+                    df["Unique ID"] = df.index  # Reassign Unique ID
 
-        with tab3:
-            st.subheader("Edit Entry")
-            options = st.session_state.edited_df.apply(lambda x: f"{x['Unique ID']} | {x['Assigned to']} | {x['Checkout Date'].strftime('%m/%d')}", axis=1)
-            edit_idx = st.selectbox("Select Entry to Edit:", st.session_state.edited_df.index, format_func=lambda x: options[x] if x in options else "Unknown")
-            
-            if edit_idx is not None:
-                row = st.session_state.edited_df.loc[edit_idx]
-                with st.form("edit_form"):
-                    e_assign = st.selectbox("Assigned to:", load_lookup_list(ASSIGNED_TO_LIST_PATH), index=load_lookup_list(ASSIGNED_TO_LIST_PATH).index(row["Assigned to"]) if row["Assigned to"] in load_lookup_list(ASSIGNED_TO_LIST_PATH) else 0)
-                    e_note = st.text_area("Notes:", row["Notes"])
-                    if st.form_submit_button("Update"):
-                        st.session_state.edited_df.at[edit_idx, "Assigned to"] = e_assign
-                        st.session_state.edited_df.at[edit_idx, "Notes"] = e_note
-                        st.session_state.edited_df.to_csv(EXCEL_FILE_PATH, index=False)
-                        push_changes_to_github(f"Edited ID {edit_idx}")
-                        st.cache_data.clear()
-                        st.rerun()
-    return df
+                    # Save the updated DataFrame to the Excel file
+                    df.drop(columns=["Unique ID"]).to_excel(file_path, index=False, engine="openpyxl")
+                    push_changes_to_github()
+                    st.success("New entry added and saved successfully!")
+            except Exception as e:
+                st.error(f"Failed to add entry: {e}")
 
-# --- 5. MAIN EXECUTION ---
-def main():
-    setup_ssh_and_git()
-    clone_or_pull_repo()
-    initialize_data_files_if_needed()
-    display_welcome_message()
+        # **2. Edit Existing Entry**
+        st.subheader("Edit Entry")
 
-    df = load_vehicle_data(EXCEL_FILE_PATH)
-    
-    st.header("Vehicle Assignment Schedule")
-    col_view, col_legend = st.columns([2, 8])
-    with col_view: view_mode = st.radio("View Mode:", ["Desktop", "Mobile"], horizontal=True)
-    with col_legend: show_legend = st.checkbox("Show Legend", value=False)
-    
-    fig = generate_gantt_chart(df, view_mode, show_legend)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    display_management_interface(df)
+        # Dropdown to select an entry by Unique ID
+        selected_id = st.selectbox(
+            "Select an entry to edit:",
+            options=[None] + df["Unique ID"].tolist(),  # Add `None` as the default value
+            format_func=lambda
+                x: f"{df.loc[x, 'Assigned to']} ({df.loc[x, 'Checkout Date']} - {df.loc[x, 'Return Date']})"
+            if pd.notna(x) and x in df["Unique ID"].values else "Select an entry"  # Display a placeholder for `None`
+        )
 
-if __name__ == "__main__":
-    main()
+        if selected_id is not None:
+            # Proceed only if an entry is selected
+            st.write("Selected Entry Details:")
+            st.write(df.loc[selected_id])
+
+            # Dictionary to store the edited values
+            edited_row = {}
+
+            # Editable fields
+            for column in df.columns:
+                if column == "Unique ID":
+                    continue # Skip Unique ID safely
+                if column == "Assigned to":  # Make "Assigned to" a dropdown
+                    edited_row[column] = st.selectbox(
+                        f"{column}:",
+                        options=assigned_to_list,  # Use the predefined assigned_to_list
+                        index=assigned_to_list.index(df.loc[selected_id, column]) if df.loc[
+                                                                                         selected_id, column] in assigned_to_list else 0,
+                        key=f"edit_dropdown_{column}"
+                    )
+                elif column == "Type":  # Make "Type" a dropdown
+                    edited_row[column] = st.selectbox(
+                        f"{column}:",
+                        options=type_list,  # Use the predefined type_list
+                        index=type_list.index(df.loc[selected_id, column]) if df.loc[
+                                                                                  selected_id, column] in type_list else 0,
+                        key=f"edit_dropdown_{column}"
+                    )
+                elif column == "Status":  # Make "Status" a dropdown
+                    edited_row[column] = st.selectbox(
+                        f"{column}:",
+                        options=["Confirmed", "Reserved"],
+                        index=["Confirmed", "Reserved"].index(df.loc[selected_id, column]) if df.loc[
+                                                                                                  selected_id, column] in [
+                                                                                                  "Confirmed",
+                                                                                                  "Reserved"] else 0,
+                        key=f"edit_dropdown_{column}"
+                    )
+                elif column == "Authorized Drivers":  # Make "Authorized Drivers" a multi-select
+                    edited_row[column] = st.multiselect(
+                        f"{column}:",
+                        options=authorized_drivers_list,
+                        default=df.loc[selected_id, column].split(", ") if pd.notna(
+                            df.loc[selected_id, column]) else [],
+                        key=f"edit_multiselect_{column}"
+                    )
+                elif pd.api.types.is_datetime64_any_dtype(df[column]):  # Date fields
+                    edited_row[column] = st.date_input(
+                        f"{column}:",
+                        value=pd.Timestamp(df.loc[selected_id, column]) if pd.notna(
+                            df.loc[selected_id, column]) else datetime.today(),
+                        key=f"edit_date_{column}"
+                    )
+                elif pd.api.types.is_numeric_dtype(df[column]):  # Numeric fields
+                    edited_row[column] = st.number_input(
+                        f"{column}:",
+                        value=df.loc[selected_id, column] if pd.notna(df.loc[selected_id, column]) else 0,
+                        key=f"edit_number_{column}"
+                    )
+                else:  # Text fields
+                    edited_row[column] = st.text_input(
+                        f"{column}:",
+                        value=df.loc[selected_id, column] if pd.notna(df.loc[selected_id, column]) else "",
+                        key=f"edit_text_{column}"
+                    )
+
+            # Button to save changes
+            if st.button("Update Entry"):
+                try:
+                    for key, value in edited_row.items():
+                        if key == "Authorized Drivers":  # Handle multi-select as a comma-separated string
+                            value = ", ".join(value)
+                        df.at[selected_id, key] = value
+                    df.drop(columns=["Unique ID"]).to_excel(file_path, index=False, engine="openpyxl")
+                    push_changes_to_github()
+                    st.success("Entry updated successfully!")
+                except Exception as e:
+                    st.error(f"Failed to update entry: {e}")
+        else:
+            st.info("Please select an entry to edit.")
+
+        # **3. Delete an Entry**
+        st.subheader("Delete Entry:Save changes to save to DF")
+        if st.button("Delete Entry"):
+            df = df.drop(index=selected_id).reset_index(drop=True)  # Reset index after deletion
+            df["Unique ID"] = df.index  # Reassign Unique ID
+            df.drop(columns=["Unique ID"]).to_excel(file_path, index=False, engine="openpyxl")
+            st.success("Entry deleted successfully!")
+
+        # Bulk Delete Entries by Date Range
+        st.subheader("Bulk Delete Entries (Save copy before deleting):Save changes to save to DF")
+        start_date = st.date_input("Start Date:", value=None)
+        end_date = st.date_input("End Date:", value=None)
+
+        # Convert `start_date` and `end_date` to `pd.Timestamp`
+        start_date = pd.Timestamp(start_date)
+        end_date = pd.Timestamp(end_date)
+
+        # Filter the entries within the specified date range
+        filtered_df = df[(df["Checkout Date"] >= start_date) & (df["Return Date"] <= end_date)]
+
+        st.write("Entries to be deleted:")
+        st.dataframe(filtered_df)
+
+        # First confirmation button
+        if st.button("Confirm Bulk Deletion"):
+            st.warning("Are you sure? This action cannot be undone!")
+            # Second confirmation button
+            if st.button("Confirm and Delete"):
+                try:
+                    # Drop the filtered rows
+                    df = df.drop(filtered_df.index).reset_index(drop=True)
+                    df["Unique ID"] = df.index  # Reassign Unique ID
+
+                    # Save changes to the Excel file
+                    df.drop(columns=["Unique ID"]).to_excel(file_path, index=False, engine="openpyxl")
+                    st.success("Selected entries have been deleted and saved successfully!")
+                except Exception as e:
+                    st.error(f"Failed to delete entries: {e}")
+
+        # **Save Changes**
+        if st.button("Save Changes"):
+            try:
+                df.drop(columns=["Unique ID"]).to_excel(file_path, index=False, engine="openpyxl")
+                st.success("Changes saved to the Excel file!")
+                # Push changes to GitHub
+                push_changes_to_github()
+            except Exception as e:
+                st.error(f"Failed to save changes: {e}")
+
+    else:
+        st.error("Incorrect passcode. Access denied!")
