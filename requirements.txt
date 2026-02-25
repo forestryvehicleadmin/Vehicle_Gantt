@@ -2,3 +2,4 @@ pandas
 plotly
 openpyxl
 streamlit>=1.50.0
+toml
