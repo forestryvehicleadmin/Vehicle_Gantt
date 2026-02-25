@@ -6,139 +6,125 @@ from datetime import datetime, timedelta
 import subprocess
 import os
 from pathlib import Path
-import shutil
+import toml
 
-# --- 1. CONFIGURATION & GIT SETUP ---
-st.set_page_config(layout="wide", page_title="SoF Vehicle Assignments", page_icon="📊")
+# --- 1. CONFIGURATION & SECRETS ---
+def load_secrets():
+    try:
+        if Path("secrets.toml").exists():
+            secrets = toml.load("secrets.toml")
+            return {
+                "REPO": secrets["git"]["repo"],
+                "BRANCH": secrets["git"]["branch"],
+                "PASSCODE": secrets["auth"]["passcode"],
+                "KEY": secrets["git"]["deploy_key"],
+            }
+        return {
+            "REPO": st.secrets["git"]["repo"],
+            "BRANCH": st.secrets["git"]["branch"],
+            "PASSCODE": st.secrets["auth"]["passcode"],
+            "KEY": st.secrets["git"]["deploy_key"],
+        }
+    except Exception:
+        st.error("Secrets not found. Please check your Streamlit Cloud secrets.")
+        st.stop()
 
-# GitHub repository details
-GITHUB_REPO = "forestryvehicleadmin/Vehicle_Gantt" 
-GITHUB_BRANCH = "master"  
-FILE_PATH = "Vehicle_Checkout_List.xlsx"  # Using Excel now
+secrets = load_secrets()
+GITHUB_REPO = secrets["REPO"]
+GITHUB_BRANCH = secrets["BRANCH"]
+VEM_PASSCODE = secrets["PASSCODE"]
+DEPLOY_KEY = secrets["KEY"]
 GIT_SSH_URL = f"git@github.com:{GITHUB_REPO}.git"
 
-# Set Git author identity
-subprocess.run(["git", "config", "--global", "user.name", "Jacob Shelly"], check=True)
-subprocess.run(["git", "config", "--global", "user.email", "jcs595@nau.edu"], check=True)
+# Paths
+base_path = Path(".")
+EXCEL_FILE_PATH = base_path / "Vehicle_Checkout_List.xlsx"
+TYPE_LIST_PATH = base_path / "type_list.txt"
+ASSIGNED_TO_LIST_PATH = base_path / "assigned_to_list.txt"
+DRIVERS_LIST_PATH = base_path / "authorized_drivers_list.txt"
 
-# Path for the SSH private key and git configuration
-DEPLOY_KEY_PATH = Path("~/.ssh/github_deploy_key").expanduser()
-SSH_CONFIG_PATH = Path("~/.ssh/config").expanduser()
-
-# Ensure private key is available for SSH
-if "DEPLOY_KEY" in st.secrets:
-    DEPLOY_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(DEPLOY_KEY_PATH, "w") as f:
-        f.write(st.secrets["DEPLOY_KEY"])
-    os.chmod(DEPLOY_KEY_PATH, 0o600) 
-
-    with open(SSH_CONFIG_PATH, "w") as f:
-        f.write(f"""
-Host github.com
-    HostName github.com
-    User git
-    IdentityFile {DEPLOY_KEY_PATH}
-    StrictHostKeyChecking no
-        """)
-    os.chmod(SSH_CONFIG_PATH, 0o600) 
+# --- 2. GIT & SSH AUTHENTICATION ---
+def setup_ssh_and_git():
+    ssh_dir = Path("~/.ssh").expanduser()
+    ssh_dir.mkdir(exist_ok=True)
+    (ssh_dir / "github_deploy_key").write_text(DEPLOY_KEY)
+    os.chmod(ssh_dir / "github_deploy_key", 0o600)
     
-    # Force use of SSH URL to ensure the Deploy Key is used
-    subprocess.run(["git", "remote", "set-url", "origin", GIT_SSH_URL], check=False)
+    config_text = f"Host github.com\n  HostName github.com\n  User git\n  IdentityFile {ssh_dir}/github_deploy_key\n  StrictHostKeyChecking no\n"
+    (ssh_dir / "config").write_text(config_text)
+    
+    subprocess.run(["git", "config", "--global", "user.name", "Jacob Shelly"], check=False)
+    subprocess.run(["git", "config", "--global", "user.email", "jcs595@nau.edu"], check=False)
 
-def push_changes_to_github():
-    """Push changes to GitHub using the SSH Key."""
+def push_changes(commit_message):
     try:
-        # Check for local changes
-        result = subprocess.run(["git", "status", "--porcelain"], stdout=subprocess.PIPE, text=True)
-        if result.stdout.strip():
-            subprocess.run(["git", "stash", "--include-untracked"], check=True)
-
-        # Pull latest changes to avoid conflicts
-        subprocess.run(["git", "pull", "origin", GITHUB_BRANCH, "--rebase"], check=True)
-
-        # Restore stashed changes
-        if result.stdout.strip():
-            subprocess.run(["git", "stash", "pop"], check=True)
-
-        # Add and Commit
+        setup_ssh_and_git()
         subprocess.run(["git", "add", "-A"], check=True)
-        diff_result = subprocess.run(["git", "diff", "--cached"], stdout=subprocess.PIPE, text=True)
-        if not diff_result.stdout.strip():
-            st.info("No changes detected to commit.")
-            return
+        # Check if there are changes to commit
+        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+        if status.stdout.strip():
+            subprocess.run(["git", "commit", "-m", commit_message], check=True)
+            # Use SSH URL explicitly to avoid Error 128
+            subprocess.run(["git", "push", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], check=True)
+            st.success("Successfully pushed to GitHub!")
+    except Exception as e:
+        st.error(f"Push failed: {e}")
 
-        subprocess.run(["git", "commit", "-m", "Update Excel and TXT files from Streamlit app"], check=True)
+# --- 3. DATA PROCESSING ---
+def set_time_to_2359(dt):
+    if pd.isnull(dt): return pd.NaT
+    return pd.to_datetime(dt).replace(hour=23, minute=59, second=0)
 
-        # Explicit Push via SSH URL to solve Permission Error 128
-        subprocess.run(["git", "push", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], check=True)
-        st.success("Changes successfully pushed to GitHub!")
-    except subprocess.CalledProcessError as e:
-        st.error(f"Failed to push changes: {e}")
-    finally:
-        subprocess.run(["git", "stash", "drop"], check=False, stderr=subprocess.DEVNULL)
+@st.cache_data
+def load_data():
+    if not EXCEL_FILE_PATH.exists():
+        df = pd.DataFrame(columns=["Unique ID", "Type", "Vehicle #", "Assigned to", "Status", "Checkout Date", "Return Date", "Authorized Drivers", "Notes"])
+        df.to_excel(EXCEL_FILE_PATH, index=False, engine='openpyxl')
+    
+    df = pd.read_excel(EXCEL_FILE_PATH, engine='openpyxl')
+    df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
+    df['Return Date'] = pd.to_datetime(df['Return Date']).apply(set_time_to_2359)
+    df['Unique ID'] = df.index
+    return df
 
-# --- 2. DATA LOADING ---
-if "popup_shown" not in st.session_state:
-    st.session_state.popup_shown = False 
-
-if not st.session_state.popup_shown:
-    with st.expander("🚀 Welcome to SoF Vehicle Assignments! (Click to Dismiss)"):
-        st.markdown("""
-        ## Key Tips for Using the App:
-        - **Legend Toggle**: Use the "Show Legend" checkbox above the chart.
-        - **Navigate chart**: Tools are in the popup at the top right of the graph. 
-        - **Phone Use**: Drag finger along numbers on side of chart to scroll. 
-        """)
-        st.button("Close Tips", on_click=lambda: setattr(st.session_state, "popup_shown", True))
-
+# --- 4. UI & CHARTS ---
+st.set_page_config(layout="wide", page_title="SoF Vehicle Assignments")
 st.title("SoF Vehicle Assignments")
 
-try:
-    # Load using Excel engine
-    df = pd.read_excel(FILE_PATH, engine="openpyxl")
-    df['Checkout Date'] = pd.to_datetime(df['Checkout Date'])
-    df['Return Date'] = pd.to_datetime(df['Return Date'])
-    df["Unique ID"] = df.index  
-    df['Notes'] = df['Notes'].astype(str)
-    df = df.sort_values(by="Type", ascending=True)
-except Exception as e:
-    st.error(f"Error loading Excel file: {e}")
-    st.stop()
+df = load_data()
 
-# --- 3. GANTT CHART RENDERING ---
+# Toggle for Legend
 show_legend = st.checkbox("Show Legend", value=False)
+view_mode = st.selectbox("View Mode", ["Desktop", "Mobile"])
 
-today = datetime.today()
-start_range = today - timedelta(weeks=2)  
-end_range = today + timedelta(weeks=4)    
-week_range = end_range + timedelta(weeks=10)   
+# Gantt Chart Logic
+today = datetime.today().replace(hour=0, minute=0, second=0)
+fig = px.timeline(df, x_start="Checkout Date", x_end="Return Date", y="Type", 
+                  color="Assigned to", hover_data=["Status", "Notes"])
 
-fig = px.timeline(
-    df,
-    x_start="Checkout Date",
-    x_end="Return Date",
-    y="Type",
-    color="Assigned to",
-    title="Vehicle Assignments",
-    hover_data=["Unique ID", "Assigned to", "Status", "Type", "Checkout Date", "Return Date"]
-)
-
-unique_types = df['Type'].unique()
-fig.update_yaxes(categoryorder="array", categoryarray=unique_types)
-
-# Add overlays for Reserved status
+# Fixing the Syntax error here
+unique_types = df['Type'].unique().tolist()
 for _, row in df.iterrows():
     if row['Status'] == 'Reserved':
-        fig.add_shape(
-            type="rect",
-            x0=row['Checkout Date'], x1=row['Return Date'],
-            y0=unique_types.tolist().index(row['Type']) - 0.4,
-            y1=unique_types.tolist().index(row['Type']) + 0.4,
-            xref="x", yref="y",
-            fillcolor="rgba(255,0,0,0.1)", 
-            line=dict(width=0), layer="below"
-        )
+        try:
+            y_idx = unique_types.index(row['Type'])
+            fig.add_shape(
+                type="rect", x0=row['Checkout Date'], x1=row['Return Date'],
+                y0=y_idx - 0.4, y1=y_idx + 0.4,
+                fillcolor="rgba(255,0,0,0.1)", line=dict(width=0), layer="below"
+            )
+        except ValueError:
+            pass
 
-# Grid lines and Today marker
-fig.add_shape(
-    type
+fig.update_layout(height=800, showlegend=show_legend, xaxis_range=[today - timedelta(days=7), today + timedelta(days=21)])
+fig.add_vline(x=today, line_width=2, line_dash="dash", line_color="red")
+st.plotly_chart(fig, use_container_width=True)
+
+# --- 5. MANAGEMENT (600-line style) ---
+with st.expander("🔧 Manage Entries (VEM Only)"):
+    passcode = st.text_input("Passcode", type="password")
+    if passcode == VEM_PASSCODE:
+        tabs = st.tabs(["➕ Add New", "📝 Edit/Table", "🗑️ Bulk Delete", "👤 Manage Lists"])
+        
+        with tabs[0]: # ADD NEW
+            with st.form("
