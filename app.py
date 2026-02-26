@@ -114,9 +114,20 @@ if not df.empty:
                               line=dict(width=0), layer="below")
             except: pass
 
-    fig.update_layout(height=800, showlegend=show_legend)
+    # --- NEW CHART LAYOUT SETTINGS ---
+    fig.update_layout(
+        height=800, 
+        showlegend=show_legend,
+        dragmode="pan"  # Sets the default mouse click-and-drag to "Pan"
+    )
+    
+    # Locks the Y-axis so zooming only affects the timeline dates
+    fig.update_yaxes(fixedrange=True) 
+    
     fig.add_vline(x=today, line_width=2, line_dash="dash", line_color="red")
-    st.plotly_chart(fig, use_container_width=True)
+    
+    # Render chart with scrollZoom enabled for the timeline
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 else:
     st.info("No vehicle data found. Please add an entry below.")
 
@@ -158,7 +169,7 @@ with st.expander("🔧 VEM Management Console"):
                     st.cache_data.clear()
                     st.rerun()
 
-        with tabs[1]: # Edit Table (UPGRADED WITH DROPDOWNS)
+        with tabs[1]: # Edit Table (WITH DROPDOWNS)
             st.info("💡 Double-click a cell to edit. Use the '+' at the bottom to add new rows quickly.")
             edited_df = st.data_editor(
                 df, 
