@@ -45,19 +45,33 @@ def setup_git_ssh():
     os.chmod(config_file, 0o600)
 
 def push_changes_to_github(commit_message="Update vehicle data via Streamlit"):
+    """Upgraded X-Ray Push Function to catch silent errors"""
     try:
         setup_git_ssh()
-        subprocess.run(["git", "add", "-A"], check=True)
+        # Add all files
+        subprocess.run(["git", "add", "-A"], capture_output=True, text=True)
+        
+        # Check if there are actually changes to commit
         status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
         
         if status.stdout.strip():
-            subprocess.run(["git", "commit", "-m", commit_message], check=True)
-            subprocess.run(["git", "push", "-f", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], check=True)
-            st.success("Successfully pushed changes to GitHub!")
+            # Run commit
+            commit_res = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
+            if commit_res.returncode != 0:
+                st.error(f"Commit Failed: {commit_res.stderr}")
+                return
+
+            # Run push
+            push_res = subprocess.run(["git", "push", "-f", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], capture_output=True, text=True)
+            if push_res.returncode != 0:
+                st.error(f"Push Failed! GitHub says:\n{push_res.stderr}")
+            else:
+                st.success("Successfully pushed changes to GitHub!")
         else:
-            st.info("No changes detected to push.")
+            st.info("No changes detected to push. (The Excel file might not have saved correctly).")
+            
     except Exception as e:
-        st.error(f"GitHub Push Error: {e}")
+        st.error(f"System Error during push: {e}")
 
 # --- 3. DATA LOADING & HELPERS ---
 def load_list(path, default_options=None):
@@ -123,6 +137,12 @@ if not df.empty:
     
     # Locks the Y-axis so zooming only affects the timeline dates
     fig.update_yaxes(fixedrange=True) 
+    
+    # 5-Day Increments on X-Axis
+    fig.update_xaxes(
+        dtick=86400000.0 * 5,  # 86,400,000 milliseconds = 1 day (x5)
+        tickformat="%b %d"     # Formats the date cleanly (e.g., "Feb 26")
+    )
     
     fig.add_vline(x=today, line_width=2, line_dash="dash", line_color="red")
     
