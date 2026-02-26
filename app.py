@@ -48,20 +48,15 @@ def push_changes_to_github(commit_message="Update vehicle data via Streamlit"):
     """Upgraded X-Ray Push Function to catch silent errors"""
     try:
         setup_git_ssh()
-        # Add all files
         subprocess.run(["git", "add", "-A"], capture_output=True, text=True)
-        
-        # Check if there are actually changes to commit
         status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
         
         if status.stdout.strip():
-            # Run commit
             commit_res = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
             if commit_res.returncode != 0:
                 st.error(f"Commit Failed: {commit_res.stderr}")
                 return
 
-            # Run push
             push_res = subprocess.run(["git", "push", "-f", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], capture_output=True, text=True)
             if push_res.returncode != 0:
                 st.error(f"Push Failed! GitHub says:\n{push_res.stderr}")
@@ -75,7 +70,6 @@ def push_changes_to_github(commit_message="Update vehicle data via Streamlit"):
 
 # --- 3. DATA LOADING & HELPERS ---
 def load_list(path, default_options=None):
-    """Loads text files safely. Returns defaults if file is missing/empty."""
     if default_options is None: default_options = []
     if not os.path.exists(path): return default_options
     with open(path, "r") as f:
@@ -128,25 +122,43 @@ if not df.empty:
                               line=dict(width=0), layer="below")
             except: pass
 
-    # --- NEW CHART LAYOUT SETTINGS ---
+    # --- CUSTOM X-AXIS TICK GENERATOR ---
+    min_date = df['Checkout Date'].min() - pd.Timedelta(days=30)
+    max_date = df['Return Date'].max() + pd.Timedelta(days=90)
+    
+    tick_vals = []
+    tick_text = []
+    
+    for d in pd.date_range(start=min_date, end=max_date):
+        if d.day in [1, 5, 10, 15, 20, 25]:
+            tick_vals.append(d)
+            # Linux (Streamlit Cloud) uses %-d to remove leading zero from days
+            tick_text.append(d.strftime("%b %-d") if d.day == 1 else str(d.day))
+
+    # --- CHART LAYOUT SETTINGS ---
     fig.update_layout(
         height=800, 
         showlegend=show_legend,
-        dragmode="pan"  # Sets the default mouse click-and-drag to "Pan"
+        dragmode="pan"
     )
     
-    # Locks the Y-axis so zooming only affects the timeline dates
     fig.update_yaxes(fixedrange=True) 
     
-    # 5-Day Increments on X-Axis
     fig.update_xaxes(
-        dtick=86400000.0 * 5,  # 86,400,000 milliseconds = 1 day (x5)
-        tickformat="%b %d"     # Formats the date cleanly (e.g., "Feb 26")
+        tickmode="array",
+        tickvals=tick_vals,
+        ticktext=tick_text,
+        tickangle=0,            # Keeps the text perfectly horizontal
+        ticks="outside",        # Shows the major tick marks under the numbers
+        minor=dict(
+            dtick=86400000.0,   # Exactly 1 day for minor ticks
+            ticklen=4,          # Length of the little vertical marks
+            tickcolor="gray"
+        )
     )
     
     fig.add_vline(x=today, line_width=2, line_dash="dash", line_color="red")
     
-    # Render chart with scrollZoom enabled for the timeline
     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 else:
     st.info("No vehicle data found. Please add an entry below.")
@@ -156,14 +168,13 @@ with st.expander("🔧 VEM Management Console"):
     passcode = st.text_input("Enter Passcode", type="password")
     if passcode == VEM_PASSCODE:
         
-        # Load lists safely to prevent crashes
         type_list = load_list("type_list.txt", ["Example Truck 1"])
         assigned_list = load_list("assigned_to_list.txt", ["Example Crew A"])
         driver_list = load_list("authorized_drivers_list.txt", ["Example Driver 1"])
         
         tabs = st.tabs(["➕ New Entry", "📝 Edit Table", "🗑️ Bulk Delete", "👤 Manage Lists"])
         
-        with tabs[0]: # New Entry Form
+        with tabs[0]: 
             with st.form("new_entry_form", clear_on_submit=True):
                 col1, col2 = st.columns(2)
                 with col1:
@@ -189,7 +200,7 @@ with st.expander("🔧 VEM Management Console"):
                     st.cache_data.clear()
                     st.rerun()
 
-        with tabs[1]: # Edit Table (WITH DROPDOWNS)
+        with tabs[1]: 
             st.info("💡 Double-click a cell to edit. Use the '+' at the bottom to add new rows quickly.")
             edited_df = st.data_editor(
                 df, 
@@ -209,7 +220,7 @@ with st.expander("🔧 VEM Management Console"):
                 st.cache_data.clear()
                 st.rerun()
 
-        with tabs[2]: # Bulk Delete
+        with tabs[2]: 
             st.subheader("Delete Range")
             d_start = st.date_input("Start Date", value=today)
             d_end = st.date_input("End Date", value=today)
@@ -224,11 +235,10 @@ with st.expander("🔧 VEM Management Console"):
                 st.cache_data.clear()
                 st.rerun()
 
-        with tabs[3]: # List Management
+        with tabs[3]: 
             list_choice = st.selectbox("Select List", ["Names", "Vehicles", "Drivers"])
             paths = {"Names": "assigned_to_list.txt", "Vehicles": "type_list.txt", "Drivers": "authorized_drivers_list.txt"}
             
-            # Show current items safely
             current_items = load_list(paths[list_choice], ["(List is empty)"])
             st.write(f"**Current items in {list_choice}:** {', '.join(current_items)}")
             
