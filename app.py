@@ -11,7 +11,6 @@ import toml
 st.set_page_config(layout="wide", page_title="SoF Vehicle Assignments", page_icon="📊")
 
 def load_secrets():
-    """Robust secret loading to prevent crashes"""
     secrets_path = Path("secrets.toml")
     if secrets_path.exists():
         secrets = toml.load(secrets_path)
@@ -45,7 +44,7 @@ def setup_git_ssh():
     os.chmod(config_file, 0o600)
 
 def push_changes_to_github(commit_message="Update vehicle data via Streamlit"):
-    """Upgraded X-Ray Push Function to catch silent errors"""
+    """Returns True if successful, False if failed"""
     try:
         setup_git_ssh()
         subprocess.run(["git", "add", "-A"], capture_output=True, text=True)
@@ -55,18 +54,22 @@ def push_changes_to_github(commit_message="Update vehicle data via Streamlit"):
             commit_res = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
             if commit_res.returncode != 0:
                 st.error(f"Commit Failed: {commit_res.stderr}")
-                return
+                return False
 
             push_res = subprocess.run(["git", "push", "-f", GIT_SSH_URL, f"HEAD:{GITHUB_BRANCH}"], capture_output=True, text=True)
             if push_res.returncode != 0:
                 st.error(f"Push Failed! GitHub says:\n{push_res.stderr}")
+                return False
             else:
                 st.success("Successfully pushed changes to GitHub!")
+                return True
         else:
             st.info("No changes detected to push. (The Excel file might not have saved correctly).")
+            return True
             
     except Exception as e:
         st.error(f"System Error during push: {e}")
+        return False
 
 # --- 3. DATA LOADING & HELPERS ---
 def load_list(path, default_options=None):
@@ -103,19 +106,17 @@ with view_col2:
 
 today = datetime.today().replace(hour=0, minute=0, second=0)
 
-# Set the default 2-month window centered on today
 window_start = today - pd.Timedelta(days=30)
 window_end = today + pd.Timedelta(days=30)
 
 if not df.empty:
     fig = px.timeline(
         df, x_start="Checkout Date", x_end="Return Date", y="Type", 
-        color="Assigned to", text="Assigned to", # <--- UPDATED to show Name instead of Vehicle #
+        color="Assigned to", text="Assigned to",
         hover_data=["Status", "Notes", "Authorized Drivers"],
         category_orders={"Type": load_list("type_list.txt")}
     )
 
-    # Add Reserved Status Shapes
     unique_types = df['Type'].unique().tolist()
     for _, row in df.iterrows():
         if row['Status'] == 'Reserved':
@@ -126,7 +127,6 @@ if not df.empty:
                               line=dict(width=0), layer="below")
             except: pass
 
-    # --- CUSTOM X-AXIS TICK GENERATOR ---
     min_date = df['Checkout Date'].min() - pd.Timedelta(days=30)
     max_date = df['Return Date'].max() + pd.Timedelta(days=90)
     
@@ -136,10 +136,8 @@ if not df.empty:
     for d in pd.date_range(start=min_date, end=max_date):
         if d.day in [1, 5, 10, 15, 20, 25]:
             tick_vals.append(d)
-            # Linux (Streamlit Cloud) uses %-d to remove leading zero from days
             tick_text.append(d.strftime("%b %-d") if d.day == 1 else str(d.day))
 
-    # --- CHART LAYOUT SETTINGS ---
     fig.update_layout(
         height=800, 
         showlegend=show_legend,
@@ -149,17 +147,13 @@ if not df.empty:
     fig.update_yaxes(fixedrange=True) 
     
     fig.update_xaxes(
-        range=[window_start, window_end],  # <--- NEW: Forces the default 2-month zoom window
+        range=[window_start, window_end],
         tickmode="array",
         tickvals=tick_vals,
         ticktext=tick_text,
-        tickangle=0,            # Keeps the text perfectly horizontal
-        ticks="outside",        # Shows the major tick marks under the numbers
-        minor=dict(
-            dtick=86400000.0,   # Exactly 1 day for minor ticks
-            ticklen=4,          # Length of the little vertical marks
-            tickcolor="gray"
-        )
+        tickangle=0,
+        ticks="outside",
+        minor=dict(dtick=86400000.0, ticklen=4, tickcolor="gray")
     )
     
     fig.add_vline(x=today, line_width=2, line_dash="dash", line_color="red")
@@ -201,9 +195,12 @@ with st.expander("🔧 VEM Management Console"):
                     }])
                     updated_df = pd.concat([df, new_row], ignore_index=True)
                     updated_df.drop(columns=["Unique ID"], errors='ignore').to_excel(FILE_PATH, index=False, engine="openpyxl")
-                    push_changes_to_github(f"Added entry for {n_assign}")
-                    st.cache_data.clear()
-                    st.rerun()
+                    
+                    # ONLY RERUN IF PUSH SUCCESSFUL
+                    success = push_changes_to_github(f"Added entry for {n_assign}")
+                    if success:
+                        st.cache_data.clear()
+                        st.rerun()
 
         with tabs[1]: 
             st.info("💡 Double-click a cell to edit. Use the '+' at the bottom to add new rows quickly.")
@@ -221,9 +218,10 @@ with st.expander("🔧 VEM Management Console"):
             )
             if st.button("Save Table Changes"):
                 edited_df.drop(columns=["Unique ID"], errors='ignore').to_excel(FILE_PATH, index=False, engine="openpyxl")
-                push_changes_to_github("Updated data via interactive editor")
-                st.cache_data.clear()
-                st.rerun()
+                success = push_changes_to_github("Updated data via interactive editor")
+                if success:
+                    st.cache_data.clear()
+                    st.rerun()
 
         with tabs[2]: 
             st.subheader("Delete Range")
@@ -236,9 +234,10 @@ with st.expander("🔧 VEM Management Console"):
             if st.button("Confirm Bulk Delete"):
                 df = df[~mask]
                 df.drop(columns=["Unique ID"], errors='ignore').to_excel(FILE_PATH, index=False, engine="openpyxl")
-                push_changes_to_github("Bulk deletion performed")
-                st.cache_data.clear()
-                st.rerun()
+                success = push_changes_to_github("Bulk deletion performed")
+                if success:
+                    st.cache_data.clear()
+                    st.rerun()
 
         with tabs[3]: 
             list_choice = st.selectbox("Select List", ["Names", "Vehicles", "Drivers"])
@@ -251,6 +250,7 @@ with st.expander("🔧 VEM Management Console"):
             if st.button("Add to List"):
                 with open(paths[list_choice], "a") as f:
                     f.write(f"\n{new_item}")
-                push_changes_to_github(f"Added {new_item} to {list_choice} list")
-                st.cache_data.clear()
-                st.rerun()
+                success = push_changes_to_github(f"Added {new_item} to {list_choice} list")
+                if success:
+                    st.cache_data.clear()
+                    st.rerun()
