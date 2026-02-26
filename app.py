@@ -103,10 +103,14 @@ with view_col2:
 
 today = datetime.today().replace(hour=0, minute=0, second=0)
 
+# Set the default 2-month window centered on today
+window_start = today - pd.Timedelta(days=30)
+window_end = today + pd.Timedelta(days=30)
+
 if not df.empty:
     fig = px.timeline(
         df, x_start="Checkout Date", x_end="Return Date", y="Type", 
-        color="Assigned to", text="Vehicle #",
+        color="Assigned to", text="Assigned to", # <--- UPDATED to show Name instead of Vehicle #
         hover_data=["Status", "Notes", "Authorized Drivers"],
         category_orders={"Type": load_list("type_list.txt")}
     )
@@ -145,6 +149,7 @@ if not df.empty:
     fig.update_yaxes(fixedrange=True) 
     
     fig.update_xaxes(
+        range=[window_start, window_end],  # <--- NEW: Forces the default 2-month zoom window
         tickmode="array",
         tickvals=tick_vals,
         ticktext=tick_text,
